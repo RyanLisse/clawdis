@@ -1,4 +1,4 @@
-import ClawdbotProtocol
+import ClawdisProtocol
 import Observation
 import SwiftUI
 
@@ -45,15 +45,15 @@ private struct OnboardingWizardCardContent: View {
 
     private var state: CardState {
         if let error = wizard.errorMessage { return .error(error) }
-        if self.wizard.isStarting { return .starting }
+        if wizard.isStarting { return .starting }
         if let step = wizard.currentStep { return .step(step) }
-        if self.wizard.isComplete { return .complete }
+        if wizard.isComplete { return .complete }
         return .waiting
     }
 
     var body: some View {
-        switch self.state {
-        case let .error(error):
+        switch state {
+        case .error(let error):
             Text("Wizard error")
                 .font(.headline)
             Text(error)
@@ -61,11 +61,11 @@ private struct OnboardingWizardCardContent: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             Button("Retry") {
-                self.wizard.reset()
+                wizard.reset()
                 Task {
-                    await self.wizard.startIfNeeded(
-                        mode: self.mode,
-                        workspace: self.workspacePath.isEmpty ? nil : self.workspacePath)
+                    await wizard.startIfNeeded(
+                        mode: mode,
+                        workspace: workspacePath.isEmpty ? nil : workspacePath)
                 }
             }
             .buttonStyle(.borderedProminent)
@@ -75,12 +75,12 @@ private struct OnboardingWizardCardContent: View {
                 Text("Starting wizard…")
                     .foregroundStyle(.secondary)
             }
-        case let .step(step):
+        case .step(let step):
             OnboardingWizardStepView(
                 step: step,
-                isSubmitting: self.wizard.isSubmitting)
+                isSubmitting: wizard.isSubmitting)
             { value in
-                Task { await self.wizard.submit(step: step, value: value) }
+                Task { await wizard.submit(step: step, value: value) }
             }
             .id(step.id)
         case .complete:
