@@ -270,18 +270,19 @@ final class AppState {
             .isEmpty ?? true)
 
         let storedMode = UserDefaults.standard.string(forKey: connectionModeKey)
+        let resolvedMode: ConnectionMode
         if let configMode {
-            self.connectionMode = configMode
+            resolvedMode = configMode
         } else if configHasRemoteUrl {
-            self.connectionMode = .remote
+            resolvedMode = .remote
         } else if let storedMode {
-            self.connectionMode = ConnectionMode(rawValue: storedMode) ?? .local
+            resolvedMode = ConnectionMode(rawValue: storedMode) ?? .local
         } else {
-            self.connectionMode = onboardingSeen ? .local : .unconfigured
+            resolvedMode = onboardingSeen ? .local : .unconfigured
         }
 
         let storedRemoteTarget = UserDefaults.standard.string(forKey: remoteTargetKey) ?? ""
-        if self.connectionMode == .remote,
+        if resolvedMode == .remote,
            storedRemoteTarget.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
            let host = AppState.remoteHost(from: configRemoteUrl)
         {
@@ -292,6 +293,7 @@ final class AppState {
         self.remoteIdentity = UserDefaults.standard.string(forKey: remoteIdentityKey) ?? ""
         self.remoteProjectRoot = UserDefaults.standard.string(forKey: remoteProjectRootKey) ?? ""
         self.remoteCliPath = UserDefaults.standard.string(forKey: remoteCliPathKey) ?? ""
+        self.connectionMode = resolvedMode
         self.canvasEnabled = UserDefaults.standard.object(forKey: canvasEnabledKey) as? Bool ?? true
         self.peekabooBridgeEnabled = UserDefaults.standard
             .object(forKey: peekabooBridgeEnabledKey) as? Bool ?? true
@@ -320,10 +322,6 @@ final class AppState {
         if !self.isPreview {
             self.startConfigWatcher()
         }
-    }
-
-    deinit {
-        self.configWatcher?.stop()
     }
 
     private static func remoteHost(from urlString: String?) -> String? {
