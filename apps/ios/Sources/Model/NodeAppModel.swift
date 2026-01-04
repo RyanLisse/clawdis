@@ -503,7 +503,7 @@ final class NodeAppModel {
                 let desired = params.desiredAccuracy ??
                     (self.isLocationPreciseEnabled() ? .precise : .balanced)
                 let status = self.locationService.authorizationStatus()
-                if status != .authorizedAlways && status != .authorizedWhenInUse {
+                if status != .authorizedAlways, status != .authorizedWhenInUse {
                     return BridgeInvokeResponse(
                         id: req.id,
                         ok: false,
@@ -511,7 +511,7 @@ final class NodeAppModel {
                             code: .unavailable,
                             message: "LOCATION_PERMISSION_REQUIRED: grant Location permission"))
                 }
-                if self.isBackgrounded && status != .authorizedAlways {
+                if self.isBackgrounded, status != .authorizedAlways {
                     return BridgeInvokeResponse(
                         id: req.id,
                         ok: false,

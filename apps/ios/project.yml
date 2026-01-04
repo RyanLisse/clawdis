@@ -63,10 +63,9 @@ targets:
     settings:
       base:
         CODE_SIGN_IDENTITY: "Apple Development"
-        CODE_SIGN_STYLE: Manual
-        DEVELOPMENT_TEAM: Y5PE65HELJ
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: HP72ZU8PSL
         PRODUCT_BUNDLE_IDENTIFIER: com.clawdis.ios
-        PROVISIONING_PROFILE_SPECIFIER: "com.clawdis.ios Development"
         SWIFT_VERSION: "6.0"
     info:
       path: Sources/Info.plist
@@ -86,6 +85,7 @@ targets:
         NSCameraUsageDescription: Clawdis can capture photos or short video clips when requested via the bridge.
         NSMicrophoneUsageDescription: Clawdis needs microphone access for voice wake.
         NSSpeechRecognitionUsageDescription: Clawdis uses on-device speech recognition for voice wake.
+        NSLocationWhenInUseUsageDescription: Clawdis may share your location with the AI assistant when requested.
 
   ClawdisTests:
     type: bundle.unit-test
