@@ -138,6 +138,13 @@ final class TalkModeManager: NSObject {
 
         let input = self.audioEngine.inputNode
         let format = input.outputFormat(forBus: 0)
+
+        guard format.channelCount > 0, format.sampleRate > 0 else {
+            throw NSError(domain: "TalkMode", code: 2, userInfo: [
+                NSLocalizedDescriptionKey: "Audio input not available",
+            ])
+        }
+
         input.removeTap(onBus: 0)
         let tapBlock = Self.makeAudioTapAppendCallback(request: request)
         input.installTap(onBus: 0, bufferSize: 2048, format: format, block: tapBlock)

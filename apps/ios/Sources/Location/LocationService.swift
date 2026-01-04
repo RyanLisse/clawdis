@@ -119,7 +119,7 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
 
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         let status = manager.authorizationStatus
-        MainActor.assumeIsolated {
+        Task { @MainActor in
             if let cont = self.authContinuation {
                 self.authContinuation = nil
                 cont.resume(returning: status)
@@ -128,7 +128,7 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        MainActor.assumeIsolated {
+        Task { @MainActor in
             guard let cont = self.locationContinuation else { return }
             self.locationContinuation = nil
             if let latest = locations.last {
@@ -140,7 +140,7 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Swift.Error) {
-        MainActor.assumeIsolated {
+        Task { @MainActor in
             guard let cont = self.locationContinuation else { return }
             self.locationContinuation = nil
             cont.resume(throwing: error)
