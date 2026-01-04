@@ -1,5 +1,5 @@
 import AVFAudio
-import ClawdbotKit
+import ClawdisKit
 import Foundation
 import Observation
 import OSLog
@@ -22,7 +22,7 @@ final class TalkModeManager: NSObject {
     private var silenceTask: Task<Void, Never>?
 
     private var lastHeard: Date?
-    private var lastTranscript: String = ""
+    var lastTranscript: String = ""
     private var lastSpokenText: String?
     private var lastInterruptedAtSeconds: Double?
 
@@ -44,10 +44,8 @@ final class TalkModeManager: NSObject {
 
     private var bridge: BridgeSession?
     private let silenceWindow: TimeInterval = 0.7
-
     private var chatSubscribedSessionKeys = Set<String>()
-
-    private let logger = Logger(subsystem: "com.clawdbot", category: "TalkMode")
+    private let logger = Logger(subsystem: "com.clawdis", category: "TalkMode")
 
     func attachBridge(_ bridge: BridgeSession) {
         self.bridge = bridge
@@ -125,7 +123,7 @@ final class TalkModeManager: NSObject {
 
     private func startRecognition() throws {
         self.stopRecognition()
-        self.speechRecognizer = SFSpeechRecognizer()
+        self.speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
         guard let recognizer = self.speechRecognizer else {
             throw NSError(domain: "TalkMode", code: 1, userInfo: [
                 NSLocalizedDescriptionKey: "Speech recognizer unavailable",
@@ -137,28 +135,23 @@ final class TalkModeManager: NSObject {
         guard let request = self.recognitionRequest else { return }
 
         let input = self.audioEngine.inputNode
-        let format = input.outputFormat(forBus: 0)
-
-        guard format.channelCount > 0, format.sampleRate > 0 else {
-            throw NSError(domain: "TalkMode", code: 2, userInfo: [
-                NSLocalizedDescriptionKey: "Audio input not available",
-            ])
-        }
-
         input.removeTap(onBus: 0)
+        self.audioEngine.prepare()
+        let format = input.outputFormat(forBus: 0)
         let tapBlock = Self.makeAudioTapAppendCallback(request: request)
         input.installTap(onBus: 0, bufferSize: 2048, format: format, block: tapBlock)
-
-        self.audioEngine.prepare()
         try self.audioEngine.start()
 
         self.recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
             guard let self else { return }
             if let error {
+                let nsError = error as NSError
+                let errorMsg = "[\(nsError.domain):\(nsError.code)] \(error.localizedDescription)"
+                print("[TalkMode] Speech error: \(errorMsg)")
                 if !self.isSpeaking {
-                    self.statusText = "Speech error: \(error.localizedDescription)"
+                    self.statusText = "Speech: \(errorMsg)"
                 }
-                self.logger.debug("speech recognition error: \(error.localizedDescription, privacy: .public)")
+                self.logger.warning("speech err: \(errorMsg, privacy: .public)")
             }
             guard let result else { return }
             let transcript = result.bestTranscription.formattedString
@@ -173,9 +166,38 @@ final class TalkModeManager: NSObject {
         self.recognitionTask = nil
         self.recognitionRequest?.endAudio()
         self.recognitionRequest = nil
+
         self.audioEngine.inputNode.removeTap(onBus: 0)
         self.audioEngine.stop()
         self.speechRecognizer = nil
+    }
+
+    var audioLevel: Float = 0.0
+
+    private nonisolated(unsafe) static var audioTapCounter: Int = 0
+    private nonisolated(unsafe) static var lastLevelLogTime: Date?
+    private nonisolated(unsafe) static var lastLevelUpdateTime: Date?
+
+    // Internal for testing
+    nonisolated static func calculateAudioLevel(from buffer: AVAudioPCMBuffer) -> Float {
+        guard let channelData = buffer.floatChannelData else { return 0 }
+        let frameCount = Int(buffer.frameLength)
+        guard frameCount > 0 else { return 0 }
+
+        let samples = channelData[0]
+        var sum: Float = 0
+        // vDSP could be faster but simple loop is fine for small buffers
+        for i in 0..<frameCount {
+            let sample = samples[i]
+            sum += sample * sample
+        }
+        let rms = sqrt(sum / Float(frameCount))
+        let db = 20 * log10(max(rms, 1e-10))
+
+        // Normalize for UI (approx range -60dB to 0dB -> 0.0 to 1.0)
+        // Clamping directly for simplicity: -50dB is "silence", -10dB is "loud"
+        // Range: -50...-10 -> 40dB range.
+        return max(0, min(1, (db + 50) / 40))
     }
 
     private nonisolated static func makeAudioTapAppendCallback(request: SpeechRequest) -> AVAudioNodeTapBlock {
@@ -295,8 +317,9 @@ final class TalkModeManager: NSObject {
             self.chatSubscribedSessionKeys.insert(key)
             self.logger.info("chat.subscribe ok sessionKey=\(key, privacy: .public)")
         } catch {
-            let err = error.localizedDescription
-            self.logger.warning("chat.subscribe failed key=\(key, privacy: .public) err=\(err, privacy: .public)")
+            self.logger
+                .warning(
+                    "chat.subscribe failed sessionKey=\(key, privacy: .public) err=\(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -346,12 +369,7 @@ final class TalkModeManager: NSObject {
             "idempotencyKey": UUID().uuidString,
         ]
         let data = try JSONSerialization.data(withJSONObject: payload)
-        guard let json = String(bytes: data, encoding: .utf8) else {
-            throw NSError(
-                domain: "TalkModeManager",
-                code: 1,
-                userInfo: [NSLocalizedDescriptionKey: "Failed to encode chat payload"])
-        }
+        let json = String(decoding: data, as: UTF8.self)
         let res = try await bridge.request(method: "chat.send", paramsJSON: json, timeoutSeconds: 30)
         let decoded = try JSONDecoder().decode(SendResponse.self, from: res)
         return decoded.runId
@@ -534,8 +552,9 @@ final class TalkModeManager: NSObject {
                     self.lastPlaybackWasPCM = false
                     result = await self.mp3Player.play(stream: stream)
                 }
-                let duration = Date().timeIntervalSince(started)
-                self.logger.info("elevenlabs stream finished=\(result.finished, privacy: .public) dur=\(duration, privacy: .public)s")
+                self.logger
+                    .info(
+                        "elevenlabs stream finished=\(result.finished, privacy: .public) dur=\(Date().timeIntervalSince(started), privacy: .public)s")
                 if !result.finished, let interruptedAt = result.interruptedAt {
                     self.lastInterruptedAtSeconds = interruptedAt
                 }
@@ -656,7 +675,8 @@ final class TalkModeManager: NSObject {
             guard let config = json["config"] as? [String: Any] else { return }
             let talk = config["talk"] as? [String: Any]
             let session = config["session"] as? [String: Any]
-            self.mainSessionKey = SessionKey.normalizeMainKey(session?["mainKey"] as? String)
+            let rawMainKey = (session?["mainKey"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            self.mainSessionKey = rawMainKey.isEmpty ? "main" : rawMainKey
             self.defaultVoiceId = (talk?["voiceId"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
             if let aliases = talk?["voiceAliases"] as? [String: Any] {
                 var resolved: [String: String] = [:]
