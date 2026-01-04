@@ -237,7 +237,7 @@ struct OnboardingWizardStepView: View {
                 } label: {
                     HStack(alignment: .top, spacing: 8) {
                         Image(systemName: self.symbolName(for: item))
-                            .foregroundStyle(.accent)
+                            .foregroundStyle(Color.accentColor)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.option.label)
                                 .foregroundStyle(.primary)

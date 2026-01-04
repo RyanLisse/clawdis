@@ -184,7 +184,7 @@ actor MacNodeRuntime {
                 let desired = params.desiredAccuracy ??
                     (Self.locationPreciseEnabled() ? .precise : .balanced)
                 let status = await self.locationService.authorizationStatus()
-                if status != .authorizedAlways && status != .authorizedWhenInUse {
+                if status != .authorizedAlways {
                     return BridgeInvokeResponse(
                         id: req.id,
                         ok: false,

@@ -60,9 +60,9 @@ final class MacNodeLocationService: NSObject, CLLocationManagerDelegate {
         }
     }
 
-    private func withTimeout<T>(
+    private func withTimeout<T: Sendable>(
         timeoutMs: Int,
-        operation: @escaping () async throws -> T) async throws -> T
+        operation: @escaping @Sendable () async throws -> T) async throws -> T
     {
         if timeoutMs == 0 {
             return try await operation()
