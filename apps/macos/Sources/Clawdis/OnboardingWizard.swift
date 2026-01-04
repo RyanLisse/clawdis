@@ -217,7 +217,7 @@ struct OnboardingWizardStepView: View {
                     selectedIndex = item.index
                 } label: {
                     HStack(alignment: .top, spacing: 8) {
-                        Image(systemName: selectedIndex == item.index ? "largecircle.fill.circle" : "circle")
+                        Image(systemName: self.symbolName(for: item))
                             .foregroundStyle(.accent)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.option.label)
@@ -233,6 +233,10 @@ struct OnboardingWizardStepView: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+
+    private func symbolName(for item: WizardOptionItem) -> String {
+        selectedIndex == item.index ? "circle.fill" : "circle"
     }
 
     private var multiselectOptions: some View {
