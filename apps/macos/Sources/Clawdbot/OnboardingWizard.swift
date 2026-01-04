@@ -1,30 +1,10 @@
-import ClawdbotProtocol
+import ClawdisProtocol
 import Foundation
 import Observation
 import OSLog
 import SwiftUI
 
-private let onboardingWizardLogger = Logger(subsystem: "com.clawdbot", category: "onboarding.wizard")
-
-// MARK: - Swift 6 AnyCodable Bridging Helpers
-
-// Bridge between ClawdbotProtocol.AnyCodable and the local module to avoid
-// Swift 6 strict concurrency type conflicts.
-
-private typealias ProtocolAnyCodable = ClawdbotProtocol.AnyCodable
-
-private func bridgeToLocal(_ value: ProtocolAnyCodable) -> AnyCodable {
-    if let data = try? JSONEncoder().encode(value),
-       let decoded = try? JSONDecoder().decode(AnyCodable.self, from: data)
-    {
-        return decoded
-    }
-    return AnyCodable(value.value)
-}
-
-private func bridgeToLocal(_ value: ProtocolAnyCodable?) -> AnyCodable? {
-    value.map(bridgeToLocal)
-}
+private let onboardingWizardLogger = Logger(subsystem: "com.clawdis", category: "onboarding.wizard")
 
 @MainActor
 @Observable
@@ -63,7 +43,7 @@ final class OnboardingWizardModel {
             let res: WizardStartResult = try await GatewayConnection.shared.requestDecoded(
                 method: .wizardStart,
                 params: params)
-            self.applyStartResult(res)
+            applyStartResult(res)
         } catch {
             self.status = "error"
             self.errorMessage = error.localizedDescription
@@ -87,7 +67,7 @@ final class OnboardingWizardModel {
             let res: WizardNextResult = try await GatewayConnection.shared.requestDecoded(
                 method: .wizardNext,
                 params: params)
-            self.applyNextResult(res)
+            applyNextResult(res)
         } catch {
             self.status = "error"
             self.errorMessage = error.localizedDescription
@@ -101,7 +81,7 @@ final class OnboardingWizardModel {
             let res: WizardStatusResult = try await GatewayConnection.shared.requestDecoded(
                 method: .wizardCancel,
                 params: ["sessionId": AnyCodable(sessionId)])
-            self.applyStatusResult(res)
+            applyStatusResult(res)
         } catch {
             self.status = "error"
             self.errorMessage = error.localizedDescription
@@ -123,8 +103,7 @@ final class OnboardingWizardModel {
         self.currentStep = decodeWizardStep(res.step)
         if res.done { self.currentStep = nil }
         if res.done || anyCodableStringValue(res.status) == "done" || anyCodableStringValue(res.status) == "cancelled"
-            || anyCodableStringValue(res.status) == "error"
-        {
+            || anyCodableStringValue(res.status) == "error" {
             self.sessionId = nil
         }
     }
@@ -163,7 +142,8 @@ struct OnboardingWizardStepView: View {
         let initialMulti = Set(
             options.filter { option in
                 anyCodableArray(step.initialvalue).contains { anyCodableEqual($0, option.option.value) }
-            }.map(\.index))
+            }.map { $0.index }
+        )
 
         _textValue = State(initialValue: initialText)
         _confirmValue = State(initialValue: initialConfirm)
@@ -184,18 +164,18 @@ struct OnboardingWizardStepView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            switch wizardStepType(self.step) {
+            switch wizardStepType(step) {
             case "note":
                 EmptyView()
             case "text":
-                self.textField
+                textField
             case "confirm":
-                Toggle("", isOn: self.$confirmValue)
+                Toggle("", isOn: $confirmValue)
                     .toggleStyle(.switch)
             case "select":
-                self.selectOptions
+                selectOptions
             case "multiselect":
-                self.multiselectOptions
+                multiselectOptions
             case "progress":
                 ProgressView()
                     .controlSize(.small)
@@ -206,25 +186,25 @@ struct OnboardingWizardStepView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Button(action: self.submit) {
-                Text(wizardStepType(self.step) == "action" ? "Run" : "Continue")
+            Button(action: submit) {
+                Text(wizardStepType(step) == "action" ? "Run" : "Continue")
                     .frame(minWidth: 120)
             }
             .buttonStyle(.borderedProminent)
-            .disabled(self.isSubmitting || self.isBlocked)
+            .disabled(isSubmitting || isBlocked)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
     private var textField: some View {
-        let isSensitive = self.step.sensitive == true
+        let isSensitive = step.sensitive == true
         if isSensitive {
-            SecureField(self.step.placeholder ?? "", text: self.$textValue)
+            SecureField(step.placeholder ?? "", text: $textValue)
                 .textFieldStyle(.roundedBorder)
                 .frame(maxWidth: 360)
         } else {
-            TextField(self.step.placeholder ?? "", text: self.$textValue)
+            TextField(step.placeholder ?? "", text: $textValue)
                 .textFieldStyle(.roundedBorder)
                 .frame(maxWidth: 360)
         }
@@ -232,49 +212,45 @@ struct OnboardingWizardStepView: View {
 
     private var selectOptions: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ForEach(self.optionItems, id: \.index) { item in
-                self.selectOptionRow(item)
+            ForEach(optionItems) { item in
+                Button {
+                    selectedIndex = item.index
+                } label: {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: self.symbolName(for: item))
+                            .foregroundStyle(.accent)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.option.label)
+                                .foregroundStyle(.primary)
+                            if let hint = item.option.hint, !hint.isEmpty {
+                                Text(hint)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
             }
         }
+    }
+
+    private func symbolName(for item: WizardOptionItem) -> String {
+        selectedIndex == item.index ? "circle.fill" : "circle"
     }
 
     private var multiselectOptions: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ForEach(self.optionItems, id: \.index) { item in
-                self.multiselectOptionRow(item)
-            }
-        }
-    }
-
-    private func selectOptionRow(_ item: WizardOptionItem) -> some View {
-        Button {
-            self.selectedIndex = item.index
-        } label: {
-            HStack(alignment: .top, spacing: 8) {
-                Image(systemName: self.selectedIndex == item.index ? "largecircle.fill.circle" : "circle")
-                    .foregroundStyle(Color.accentColor)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(item.option.label)
-                        .foregroundStyle(.primary)
-                    if let hint = item.option.hint, !hint.isEmpty {
-                        Text(hint)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+            ForEach(optionItems) { item in
+                Toggle(isOn: bindingForOption(item)) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.option.label)
+                        if let hint = item.option.hint, !hint.isEmpty {
+                            Text(hint)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
-                }
-            }
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func multiselectOptionRow(_ item: WizardOptionItem) -> some View {
-        Toggle(isOn: self.bindingForOption(item)) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.option.label)
-                if let hint = item.option.hint, !hint.isEmpty {
-                    Text(hint)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
             }
         }
@@ -282,47 +258,47 @@ struct OnboardingWizardStepView: View {
 
     private func bindingForOption(_ item: WizardOptionItem) -> Binding<Bool> {
         Binding(get: {
-            self.selectedIndices.contains(item.index)
+            selectedIndices.contains(item.index)
         }, set: { newValue in
             if newValue {
-                self.selectedIndices.insert(item.index)
+                selectedIndices.insert(item.index)
             } else {
-                self.selectedIndices.remove(item.index)
+                selectedIndices.remove(item.index)
             }
         })
     }
 
     private var isBlocked: Bool {
         let type = wizardStepType(step)
-        if type == "select" { return self.optionItems.isEmpty }
-        if type == "multiselect" { return self.optionItems.isEmpty }
+        if type == "select" { return optionItems.isEmpty }
+        if type == "multiselect" { return optionItems.isEmpty }
         return false
     }
 
     private func submit() {
-        switch wizardStepType(self.step) {
+        switch wizardStepType(step) {
         case "note", "progress":
-            self.onSubmit(nil)
+            onSubmit(nil)
         case "text":
-            self.onSubmit(AnyCodable(self.textValue))
+            onSubmit(AnyCodable(textValue))
         case "confirm":
-            self.onSubmit(AnyCodable(self.confirmValue))
+            onSubmit(AnyCodable(confirmValue))
         case "select":
-            guard self.optionItems.indices.contains(self.selectedIndex) else {
-                self.onSubmit(nil)
+            guard optionItems.indices.contains(selectedIndex) else {
+                onSubmit(nil)
                 return
             }
-            let option = self.optionItems[self.selectedIndex].option
-            self.onSubmit(bridgeToLocal(option.value) ?? AnyCodable(option.label))
+            let option = optionItems[selectedIndex].option
+            onSubmit(option.value ?? AnyCodable(option.label))
         case "multiselect":
-            let values = self.optionItems
-                .filter { self.selectedIndices.contains($0.index) }
-                .map { bridgeToLocal($0.option.value) ?? AnyCodable($0.option.label) }
-            self.onSubmit(AnyCodable(values))
+            let values = optionItems
+                .filter { selectedIndices.contains($0.index) }
+                .map { $0.option.value ?? AnyCodable($0.option.label) }
+            onSubmit(AnyCodable(values))
         case "action":
-            self.onSubmit(AnyCodable(true))
+            onSubmit(AnyCodable(true))
         default:
-            self.onSubmit(nil)
+            onSubmit(nil)
         }
     }
 }
@@ -331,16 +307,16 @@ private struct WizardOptionItem: Identifiable {
     let index: Int
     let option: WizardOption
 
-    var id: Int { self.index }
+    var id: Int { index }
 }
 
 private struct WizardOption {
-    let value: ProtocolAnyCodable?
+    let value: AnyCodable?
     let label: String
     let hint: String?
 }
 
-private func decodeWizardStep(_ raw: [String: ProtocolAnyCodable]?) -> WizardStep? {
+private func decodeWizardStep(_ raw: [String: AnyCodable]?) -> WizardStep? {
     guard let raw else { return nil }
     do {
         let data = try JSONEncoder().encode(raw)
@@ -351,7 +327,7 @@ private func decodeWizardStep(_ raw: [String: ProtocolAnyCodable]?) -> WizardSte
     }
 }
 
-private func parseWizardOptions(_ raw: [[String: ProtocolAnyCodable]]?) -> [WizardOption] {
+private func parseWizardOptions(_ raw: [[String: AnyCodable]]?) -> [WizardOption] {
     guard let raw else { return [] }
     return raw.map { entry in
         let value = entry["value"]
@@ -365,66 +341,66 @@ private func wizardStepType(_ step: WizardStep) -> String {
     (step.type.value as? String) ?? ""
 }
 
-private func anyCodableString(_ value: ProtocolAnyCodable?) -> String {
+private func anyCodableString(_ value: AnyCodable?) -> String {
     switch value?.value {
     case let string as String:
-        string
+        return string
     case let int as Int:
-        String(int)
+        return String(int)
     case let double as Double:
-        String(double)
+        return String(double)
     case let bool as Bool:
-        bool ? "true" : "false"
+        return bool ? "true" : "false"
     default:
-        ""
+        return ""
     }
 }
 
-private func anyCodableStringValue(_ value: ProtocolAnyCodable?) -> String? {
+private func anyCodableStringValue(_ value: AnyCodable?) -> String? {
     value?.value as? String
 }
 
-private func anyCodableBool(_ value: ProtocolAnyCodable?) -> Bool {
+private func anyCodableBool(_ value: AnyCodable?) -> Bool {
     switch value?.value {
     case let bool as Bool:
-        bool
+        return bool
     case let string as String:
-        string.lowercased() == "true"
+        return string.lowercased() == "true"
     default:
-        false
+        return false
     }
 }
 
-private func anyCodableArray(_ value: ProtocolAnyCodable?) -> [ProtocolAnyCodable] {
+private func anyCodableArray(_ value: AnyCodable?) -> [AnyCodable] {
     switch value?.value {
-    case let arr as [ProtocolAnyCodable]:
-        arr
+    case let arr as [AnyCodable]:
+        return arr
     case let arr as [Any]:
-        arr.map { ProtocolAnyCodable($0) }
+        return arr.map { AnyCodable($0) }
     default:
-        []
+        return []
     }
 }
 
-private func anyCodableEqual(_ lhs: ProtocolAnyCodable?, _ rhs: ProtocolAnyCodable?) -> Bool {
+private func anyCodableEqual(_ lhs: AnyCodable?, _ rhs: AnyCodable?) -> Bool {
     switch (lhs?.value, rhs?.value) {
     case let (l as String, r as String):
-        l == r
+        return l == r
     case let (l as Int, r as Int):
-        l == r
+        return l == r
     case let (l as Double, r as Double):
-        l == r
+        return l == r
     case let (l as Bool, r as Bool):
-        l == r
+        return l == r
     case let (l as String, r as Int):
-        l == String(r)
+        return l == String(r)
     case let (l as Int, r as String):
-        String(l) == r
+        return String(l) == r
     case let (l as String, r as Double):
-        l == String(r)
+        return l == String(r)
     case let (l as Double, r as String):
-        String(l) == r
+        return String(l) == r
     default:
-        false
+        return false
     }
 }
