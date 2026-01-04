@@ -1,4 +1,4 @@
-import ClawdbotKit
+import ClawdisKit
 import CoreLocation
 import Foundation
 
@@ -30,7 +30,7 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
         return .fullAccuracy
     }
 
-    func ensureAuthorization(mode: ClawdbotLocationMode) async -> CLAuthorizationStatus {
+    func ensureAuthorization(mode: ClawdisLocationMode) async -> CLAuthorizationStatus {
         guard CLLocationManager.locationServicesEnabled() else { return .denied }
 
         let status = self.manager.authorizationStatus
@@ -53,8 +53,8 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     }
 
     func currentLocation(
-        params: ClawdbotLocationGetParams,
-        desiredAccuracy: ClawdbotLocationAccuracy,
+        params: ClawdisLocationGetParams,
+        desiredAccuracy: ClawdisLocationAccuracy,
         maxAgeMs: Int?,
         timeoutMs: Int?) async throws -> CLLocation
     {
@@ -67,7 +67,7 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
         }
 
         self.manager.desiredAccuracy = Self.accuracyValue(desiredAccuracy)
-        let timeout = max(0, timeoutMs ?? 10000)
+        let timeout = max(0, timeoutMs ?? 10_000)
         return try await self.withTimeout(timeoutMs: timeout) {
             try await self.requestLocation()
         }
@@ -90,23 +90,36 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
         timeoutMs: Int,
         operation: @escaping @Sendable () async throws -> T) async throws -> T
     {
-        try await AsyncTimeout.withTimeoutMs(timeoutMs: timeoutMs, onTimeout: { Error.timeout }, operation: operation)
+        if timeoutMs == 0 {
+            return try await operation()
+        }
+
+        return try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask { try await operation() }
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(timeoutMs) * 1_000_000)
+                throw Error.timeout
+            }
+            let result = try await group.next()!
+            group.cancelAll()
+            return result
+        }
     }
 
-    private static func accuracyValue(_ accuracy: ClawdbotLocationAccuracy) -> CLLocationAccuracy {
+    private static func accuracyValue(_ accuracy: ClawdisLocationAccuracy) -> CLLocationAccuracy {
         switch accuracy {
         case .coarse:
-            kCLLocationAccuracyKilometer
+            return kCLLocationAccuracyKilometer
         case .balanced:
-            kCLLocationAccuracyHundredMeters
+            return kCLLocationAccuracyHundredMeters
         case .precise:
-            kCLLocationAccuracyBest
+            return kCLLocationAccuracyBest
         }
     }
 
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         let status = manager.authorizationStatus
-        Task { @MainActor in
+        MainActor.assumeIsolated {
             if let cont = self.authContinuation {
                 self.authContinuation = nil
                 cont.resume(returning: status)
@@ -115,11 +128,10 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        let locs = locations
-        Task { @MainActor in
+        MainActor.assumeIsolated {
             guard let cont = self.locationContinuation else { return }
             self.locationContinuation = nil
-            if let latest = locs.last {
+            if let latest = locations.last {
                 cont.resume(returning: latest)
             } else {
                 cont.resume(throwing: Error.unavailable)
@@ -128,11 +140,10 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Swift.Error) {
-        let err = error
-        Task { @MainActor in
+        MainActor.assumeIsolated {
             guard let cont = self.locationContinuation else { return }
             self.locationContinuation = nil
-            cont.resume(throwing: err)
+            cont.resume(throwing: error)
         }
     }
 }
