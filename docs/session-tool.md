@@ -75,6 +75,15 @@ Behavior:
 - If wait times out: `{ runId, status: "timeout", error }`. Run continues; call `sessions_history` later.
 - If the run fails: `{ runId, status: "error", error }`.
 - Waits via gateway `agent.wait` (server-side) so reconnects don't drop the wait.
+- Agent-to-agent message context is injected for the primary run.
+- After the primary run completes, Clawdis runs a **reply-back loop**:
+  - Round 2+ alternates between requester and target agents.
+  - Reply exactly `REPLY_SKIP` to stop the ping‑pong.
+  - Max turns is `session.agentToAgent.maxPingPongTurns` (0–5, default 5).
+- Once the loop ends, Clawdis runs the **agent‑to‑agent announce step** (target agent only):
+  - Reply exactly `ANNOUNCE_SKIP` to stay silent.
+  - Any other reply is sent to the target channel.
+  - Announce step includes the original request + round‑1 reply + latest ping‑pong reply.
 
 ## Provider Field
 - For groups, `provider` is the `surface` recorded on the session entry.

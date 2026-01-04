@@ -292,6 +292,63 @@ Reaction notification modes:
 - `all`: all reactions on all messages.
 - `allowlist`: reactions from `guilds.<id>.users` on all messages (empty list disables).
 
+### `slack` (socket mode)
+
+Slack runs in Socket Mode and requires both a bot token and app token:
+
+```json5
+{
+  slack: {
+    enabled: true,
+    botToken: "xoxb-...",
+    appToken: "xapp-...",
+    dm: {
+      enabled: true,
+      allowFrom: ["U123", "U456", "*"],
+      groupEnabled: false,
+      groupChannels: ["G123"]
+    },
+    channels: {
+      C123: { allow: true, requireMention: true },
+      "#general": { allow: true, requireMention: false }
+    },
+    reactionNotifications: "own", // off | own | all | allowlist
+    reactionAllowlist: ["U123"],
+    actions: {
+      reactions: true,
+      messages: true,
+      pins: true,
+      memberInfo: true,
+      emojiList: true
+    },
+    slashCommand: {
+      enabled: true,
+      name: "clawd",
+      sessionPrefix: "slack:slash",
+      ephemeral: true
+    },
+    textChunkLimit: 4000,
+    mediaMaxMb: 20
+  }
+}
+```
+
+Clawdis starts Slack when the provider is enabled and both tokens are set (via config or `SLACK_BOT_TOKEN` + `SLACK_APP_TOKEN`). Use `user:<id>` (DM) or `channel:<id>` when specifying delivery targets for cron/CLI commands.
+
+Reaction notification modes:
+- `off`: no reaction events.
+- `own`: reactions on the bot's own messages (default).
+- `all`: all reactions on all messages.
+- `allowlist`: reactions from `slack.reactionAllowlist` on all messages (empty list disables).
+
+Slack action groups (gate `slack` tool actions):
+| Action group | Default | Notes |
+| --- | --- | --- |
+| reactions | enabled | React + list reactions |
+| messages | enabled | Read/send/edit/delete |
+| pins | enabled | Pin/unpin/list |
+| memberInfo | enabled | Member info |
+| emojiList | enabled | Custom emoji list |
 ### `imessage` (imsg CLI)
 
 Clawdis spawns `imsg rpc` (JSON-RPC over stdio). No daemon or port required.
@@ -388,6 +445,7 @@ Controls the embedded agent runtime (model/thinking/verbose/timeouts).
     },
     thinkingDefault: "low",
     verboseDefault: "off",
+    elevatedDefault: "on",
     timeoutSeconds: 600,
     mediaMaxMb: 5,
     heartbeat: {
@@ -438,6 +496,31 @@ Z.AI models are available as `zai/<model>` (e.g. `zai/glm-4.7`) and require
 - `backgroundMs`: time before auto-background (ms, default 10000)
 - `timeoutSec`: auto-kill after this runtime (seconds, default 1800)
 - `cleanupMs`: how long to keep finished sessions in memory (ms, default 1800000)
+
+`agent.elevated` controls elevated (host) bash access:
+- `enabled`: allow elevated mode (default true)
+- `allowFrom`: per-surface allowlists (empty = disabled)
+  - `whatsapp`: E.164 numbers
+  - `telegram`: chat ids or usernames
+  - `discord`: user ids or usernames (falls back to `discord.dm.allowFrom` if omitted)
+  - `signal`: E.164 numbers
+  - `imessage`: handles/chat ids
+  - `webchat`: session ids or usernames
+
+Example:
+```json5
+{
+  agent: {
+    elevated: {
+      enabled: true,
+      allowFrom: {
+        whatsapp: ["+15555550123"],
+        discord: ["steipete", "1234567890123"]
+      }
+    }
+  }
+}
+```
 
 `agent.maxConcurrent` sets the maximum number of embedded agent runs that can
 execute in parallel across sessions. Each session is still serialized (one run
@@ -621,6 +704,10 @@ Controls session scoping, idle expiry, reset triggers, and where the session sto
     resetTriggers: ["/new", "/reset"],
     store: "~/.clawdis/sessions/sessions.json",
     // mainKey is ignored; primary key is fixed to "main"
+    agentToAgent: {
+      // Max ping-pong reply turns between requester/target (0–5).
+      maxPingPongTurns: 5
+    },
     sendPolicy: {
       rules: [
         { action: "deny", match: { surface: "discord", chatType: "group" } }
@@ -632,6 +719,7 @@ Controls session scoping, idle expiry, reset triggers, and where the session sto
 ```
 
 Fields:
+- `agentToAgent.maxPingPongTurns`: max reply-back turns between requester/target (0–5, default 5).
 - `sendPolicy.default`: `allow` or `deny` fallback when no rule matches.
 - `sendPolicy.rules[]`: match by `surface` (provider), `chatType` (`direct|group|room`), or `keyPrefix` (e.g. `cron:`). First deny wins; otherwise allow.
 
@@ -687,11 +775,16 @@ Example:
 ### `browser` (clawd-managed Chrome)
 
 Clawdis can start a **dedicated, isolated** Chrome/Chromium instance for clawd and expose a small loopback control server.
+Profiles can point at a **remote** Chrome via `profiles.<name>.cdpUrl`. Remote
+profiles are attach-only (start/stop/reset are disabled).
+
+`browser.cdpUrl` remains for legacy single-profile configs and as the base
+scheme/host for profiles that only set `cdpPort`.
 
 Defaults:
 - enabled: `true`
 - control URL: `http://127.0.0.1:18791` (CDP uses `18792`)
-- CDP URL: `http://127.0.0.1:18792` (control URL + 1)
+- CDP URL: `http://127.0.0.1:18792` (control URL + 1, legacy single-profile)
 - profile color: `#FF4500` (lobster-orange)
 - Note: the control server is started by the running gateway (Clawdis.app menubar, or `clawdis gateway`).
 
@@ -700,7 +793,13 @@ Defaults:
   browser: {
     enabled: true,
     controlUrl: "http://127.0.0.1:18791",
-    // cdpUrl: "http://127.0.0.1:18792", // override for remote CDP
+    // cdpUrl: "http://127.0.0.1:18792", // legacy single-profile override
+    defaultProfile: "clawd",
+    profiles: {
+      clawd: { cdpPort: 18800, color: "#FF4500" },
+      work: { cdpPort: 18801, color: "#0066CC" },
+      remote: { cdpUrl: "http://10.0.0.42:9222", color: "#00AA00" }
+    },
     color: "#FF4500",
     // Advanced:
     // headless: false,

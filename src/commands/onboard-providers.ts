@@ -31,6 +31,7 @@ async function noteProviderPrimer(prompter: WizardPrompter): Promise<void> {
       "WhatsApp: dedicated second number recommended; primary number OK (self-chat).",
       "Telegram: Bot API (token from @BotFather), replies via your bot.",
       "Discord: Bot token from Discord Developer Portal; invite bot to your server.",
+      "Slack: Socket Mode app token + bot token, DMs via App Home Messages tab.",
       "Signal: signal-cli as a linked device; separate number recommended.",
       "iMessage: local imsg CLI; separate Apple ID recommended only on a separate Mac.",
     ].join("\n"),
@@ -59,6 +60,96 @@ async function noteDiscordTokenHelp(prompter: WizardPrompter): Promise<void> {
       "Tip: enable Message Content Intent if you need message text.",
     ].join("\n"),
     "Discord bot token",
+  );
+}
+
+function buildSlackManifest(botName: string) {
+  const safeName = botName.trim() || "Clawdis";
+  const manifest = {
+    display_information: {
+      name: safeName,
+      description: `${safeName} connector for Clawdis`,
+    },
+    features: {
+      bot_user: {
+        display_name: safeName,
+        always_online: false,
+      },
+      app_home: {
+        messages_tab_enabled: true,
+        messages_tab_read_only_enabled: false,
+      },
+      slash_commands: [
+        {
+          command: "/clawd",
+          description: "Send a message to Clawdis",
+          should_escape: false,
+        },
+      ],
+    },
+    oauth_config: {
+      scopes: {
+        bot: [
+          "chat:write",
+          "channels:history",
+          "channels:read",
+          "groups:history",
+          "im:history",
+          "mpim:history",
+          "users:read",
+          "app_mentions:read",
+          "reactions:read",
+          "reactions:write",
+          "pins:read",
+          "pins:write",
+          "emoji:read",
+          "commands",
+          "files:read",
+          "files:write",
+        ],
+      },
+    },
+    settings: {
+      socket_mode_enabled: true,
+      event_subscriptions: {
+        bot_events: [
+          "app_mention",
+          "message.channels",
+          "message.groups",
+          "message.im",
+          "message.mpim",
+          "reaction_added",
+          "reaction_removed",
+          "member_joined_channel",
+          "member_left_channel",
+          "channel_rename",
+          "pin_added",
+          "pin_removed",
+        ],
+      },
+    },
+  };
+  return JSON.stringify(manifest, null, 2);
+}
+
+async function noteSlackTokenHelp(
+  prompter: WizardPrompter,
+  botName: string,
+): Promise<void> {
+  const manifest = buildSlackManifest(botName);
+  await prompter.note(
+    [
+      "1) Slack API → Create App → From scratch",
+      "2) Add Socket Mode + enable it to get the app-level token (xapp-...)",
+      "3) OAuth & Permissions → install app to workspace (xoxb- bot token)",
+      "4) Enable Event Subscriptions (socket) for message events",
+      "5) App Home → enable the Messages tab for DMs",
+      "Tip: set SLACK_BOT_TOKEN + SLACK_APP_TOKEN in your env.",
+      "",
+      "Manifest (JSON):",
+      manifest,
+    ].join("\n"),
+    "Slack socket mode tokens",
   );
 }
 
@@ -153,10 +244,16 @@ export async function setupProviders(
   const whatsappLinked = await detectWhatsAppLinked();
   const telegramEnv = Boolean(process.env.TELEGRAM_BOT_TOKEN?.trim());
   const discordEnv = Boolean(process.env.DISCORD_BOT_TOKEN?.trim());
+  const slackBotEnv = Boolean(process.env.SLACK_BOT_TOKEN?.trim());
+  const slackAppEnv = Boolean(process.env.SLACK_APP_TOKEN?.trim());
   const telegramConfigured = Boolean(
     telegramEnv || cfg.telegram?.botToken || cfg.telegram?.tokenFile,
   );
   const discordConfigured = Boolean(discordEnv || cfg.discord?.token);
+  const slackConfigured = Boolean(
+    (slackBotEnv && slackAppEnv) ||
+      (cfg.slack?.botToken && cfg.slack?.appToken),
+  );
   const signalConfigured = Boolean(
     cfg.signal?.account || cfg.signal?.httpUrl || cfg.signal?.httpPort,
   );
@@ -173,6 +270,7 @@ export async function setupProviders(
       `WhatsApp: ${whatsappLinked ? "linked" : "not linked"}`,
       `Telegram: ${telegramConfigured ? "configured" : "needs token"}`,
       `Discord: ${discordConfigured ? "configured" : "needs token"}`,
+      `Slack: ${slackConfigured ? "configured" : "needs tokens"}`,
       `Signal: ${signalConfigured ? "configured" : "needs setup"}`,
       `iMessage: ${imessageConfigured ? "configured" : "needs setup"}`,
       `signal-cli: ${signalCliDetected ? "found" : "missing"} (${signalCliPath})`,
@@ -206,6 +304,11 @@ export async function setupProviders(
         value: "discord",
         label: "Discord (Bot API)",
         hint: discordConfigured ? "configured" : "needs token",
+      },
+      {
+        value: "slack",
+        label: "Slack (Socket Mode)",
+        hint: slackConfigured ? "configured" : "needs tokens",
       },
       {
         value: "signal",
@@ -374,6 +477,96 @@ export async function setupProviders(
     }
   }
 
+  if (selection.includes("slack")) {
+    let botToken: string | null = null;
+    let appToken: string | null = null;
+    const slackBotName = String(
+      await prompter.text({
+        message: "Slack bot display name (used for manifest)",
+        initialValue: "Clawdis",
+      }),
+    ).trim();
+    if (!slackConfigured) {
+      await noteSlackTokenHelp(prompter, slackBotName);
+    }
+    if (
+      slackBotEnv &&
+      slackAppEnv &&
+      (!cfg.slack?.botToken || !cfg.slack?.appToken)
+    ) {
+      const keepEnv = await prompter.confirm({
+        message: "SLACK_BOT_TOKEN + SLACK_APP_TOKEN detected. Use env vars?",
+        initialValue: true,
+      });
+      if (keepEnv) {
+        next = {
+          ...next,
+          slack: {
+            ...next.slack,
+            enabled: true,
+          },
+        };
+      } else {
+        botToken = String(
+          await prompter.text({
+            message: "Enter Slack bot token (xoxb-...)",
+            validate: (value) => (value?.trim() ? undefined : "Required"),
+          }),
+        ).trim();
+        appToken = String(
+          await prompter.text({
+            message: "Enter Slack app token (xapp-...)",
+            validate: (value) => (value?.trim() ? undefined : "Required"),
+          }),
+        ).trim();
+      }
+    } else if (cfg.slack?.botToken && cfg.slack?.appToken) {
+      const keep = await prompter.confirm({
+        message: "Slack tokens already configured. Keep them?",
+        initialValue: true,
+      });
+      if (!keep) {
+        botToken = String(
+          await prompter.text({
+            message: "Enter Slack bot token (xoxb-...)",
+            validate: (value) => (value?.trim() ? undefined : "Required"),
+          }),
+        ).trim();
+        appToken = String(
+          await prompter.text({
+            message: "Enter Slack app token (xapp-...)",
+            validate: (value) => (value?.trim() ? undefined : "Required"),
+          }),
+        ).trim();
+      }
+    } else {
+      botToken = String(
+        await prompter.text({
+          message: "Enter Slack bot token (xoxb-...)",
+          validate: (value) => (value?.trim() ? undefined : "Required"),
+        }),
+      ).trim();
+      appToken = String(
+        await prompter.text({
+          message: "Enter Slack app token (xapp-...)",
+          validate: (value) => (value?.trim() ? undefined : "Required"),
+        }),
+      ).trim();
+    }
+
+    if (botToken && appToken) {
+      next = {
+        ...next,
+        slack: {
+          ...next.slack,
+          enabled: true,
+          botToken,
+          appToken,
+        },
+      };
+    }
+  }
+
   if (selection.includes("signal")) {
     let resolvedCliPath = signalCliPath;
     let cliDetected = signalCliDetected;
@@ -517,6 +710,19 @@ export async function setupProviders(
         next = {
           ...next,
           discord: { ...next.discord, enabled: false },
+        };
+      }
+    }
+
+    if (!selection.includes("slack") && slackConfigured) {
+      const disable = await prompter.confirm({
+        message: "Disable Slack provider?",
+        initialValue: false,
+      });
+      if (disable) {
+        next = {
+          ...next,
+          slack: { ...next.slack, enabled: false },
         };
       }
     }

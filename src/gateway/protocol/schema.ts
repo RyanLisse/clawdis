@@ -209,6 +209,7 @@ export const AgentParamsSchema = Type.Object(
     channel: Type.Optional(Type.String()),
     timeout: Type.Optional(Type.Integer({ minimum: 0 })),
     lane: Type.Optional(Type.String()),
+    extraSystemPrompt: Type.Optional(Type.String()),
     idempotencyKey: NonEmptyString,
   },
   { additionalProperties: false },
@@ -308,6 +309,7 @@ export const SessionsPatchParamsSchema = Type.Object(
     key: NonEmptyString,
     thinkingLevel: Type.Optional(Type.Union([NonEmptyString, Type.Null()])),
     verboseLevel: Type.Optional(Type.Union([NonEmptyString, Type.Null()])),
+    elevatedLevel: Type.Optional(Type.Union([NonEmptyString, Type.Null()])),
     model: Type.Optional(Type.Union([NonEmptyString, Type.Null()])),
     sendPolicy: Type.Optional(
       Type.Union([Type.Literal("allow"), Type.Literal("deny"), Type.Null()]),
@@ -633,6 +635,7 @@ export const CronPayloadSchema = Type.Union([
           Type.Literal("whatsapp"),
           Type.Literal("telegram"),
           Type.Literal("discord"),
+          Type.Literal("slack"),
         ]),
       ),
       to: Type.Optional(Type.String()),

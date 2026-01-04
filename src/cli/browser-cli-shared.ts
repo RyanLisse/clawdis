@@ -1,1 +1,5 @@
-export type BrowserParentOpts = { url?: string; json?: boolean };
+export type BrowserParentOpts = {
+  url?: string;
+  json?: boolean;
+  profile?: string;
+};

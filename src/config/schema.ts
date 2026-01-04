@@ -1,5 +1,5 @@
 import { VERSION } from "../version.js";
-import { ClawdisSchema } from "./config.js";
+import { ClawdisSchema } from "./zod-schema.js";
 
 export type ConfigUiHint = {
   label?: string;
@@ -40,6 +40,7 @@ const GROUP_LABELS: Record<string, string> = {
   talk: "Talk",
   telegram: "Telegram",
   discord: "Discord",
+  slack: "Slack",
   signal: "Signal",
   imessage: "iMessage",
   whatsapp: "WhatsApp",
@@ -65,6 +66,7 @@ const GROUP_ORDER: Record<string, number> = {
   talk: 130,
   telegram: 140,
   discord: 150,
+  slack: 155,
   signal: 160,
   imessage: 170,
   whatsapp: 180,
@@ -88,9 +90,12 @@ const FIELD_LABELS: Record<string, string> = {
   "agent.model": "Default Model",
   "ui.seamColor": "Accent Color",
   "browser.controlUrl": "Browser Control URL",
+  "session.agentToAgent.maxPingPongTurns": "Agent-to-Agent Ping-Pong Turns",
   "talk.apiKey": "Talk API Key",
   "telegram.botToken": "Telegram Bot Token",
   "discord.token": "Discord Bot Token",
+  "slack.botToken": "Slack Bot Token",
+  "slack.appToken": "Slack App Token",
   "signal.account": "Signal Account",
   "imessage.cliPath": "iMessage CLI Path",
 };
@@ -106,6 +111,8 @@ const FIELD_HELP: Record<string, string> = {
     'Hot reload strategy for config changes ("hybrid" recommended).',
   "gateway.reload.debounceMs":
     "Debounce window (ms) before applying config changes.",
+  "session.agentToAgent.maxPingPongTurns":
+    "Max reply-back turns between requester and target (0–5).",
 };
 
 const FIELD_PLACEHOLDERS: Record<string, string> = {

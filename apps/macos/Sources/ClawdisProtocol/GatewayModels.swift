@@ -378,6 +378,8 @@ public struct AgentParams: Codable {
     public let deliver: Bool?
     public let channel: String?
     public let timeout: Int?
+    public let lane: String?
+    public let extrasystemprompt: String?
     public let idempotencykey: String
 
     public init(
@@ -389,6 +391,8 @@ public struct AgentParams: Codable {
         deliver: Bool?,
         channel: String?,
         timeout: Int?,
+        lane: String?,
+        extrasystemprompt: String?,
         idempotencykey: String
     ) {
         self.message = message
@@ -399,6 +403,8 @@ public struct AgentParams: Codable {
         self.deliver = deliver
         self.channel = channel
         self.timeout = timeout
+        self.lane = lane
+        self.extrasystemprompt = extrasystemprompt
         self.idempotencykey = idempotencykey
     }
     private enum CodingKeys: String, CodingKey {
@@ -410,6 +416,8 @@ public struct AgentParams: Codable {
         case deliver
         case channel
         case timeout
+        case lane
+        case extrasystemprompt = "extraSystemPrompt"
         case idempotencykey = "idempotencyKey"
     }
 }
@@ -638,6 +646,7 @@ public struct SessionsPatchParams: Codable {
     public let key: String
     public let thinkinglevel: AnyCodable?
     public let verboselevel: AnyCodable?
+    public let elevatedlevel: AnyCodable?
     public let model: AnyCodable?
     public let sendpolicy: AnyCodable?
     public let groupactivation: AnyCodable?
@@ -646,6 +655,7 @@ public struct SessionsPatchParams: Codable {
         key: String,
         thinkinglevel: AnyCodable?,
         verboselevel: AnyCodable?,
+        elevatedlevel: AnyCodable?,
         model: AnyCodable?,
         sendpolicy: AnyCodable?,
         groupactivation: AnyCodable?
@@ -653,6 +663,7 @@ public struct SessionsPatchParams: Codable {
         self.key = key
         self.thinkinglevel = thinkinglevel
         self.verboselevel = verboselevel
+        self.elevatedlevel = elevatedlevel
         self.model = model
         self.sendpolicy = sendpolicy
         self.groupactivation = groupactivation
@@ -661,6 +672,7 @@ public struct SessionsPatchParams: Codable {
         case key
         case thinkinglevel = "thinkingLevel"
         case verboselevel = "verboseLevel"
+        case elevatedlevel = "elevatedLevel"
         case model
         case sendpolicy = "sendPolicy"
         case groupactivation = "groupActivation"

@@ -9,22 +9,28 @@
 - Sessions: primary session key is fixed to `main` (or `global` for global scope); `session.mainKey` is ignored.
 
 ### Features
+- Highlight: agent-to-agent ping-pong (reply-back loop) with `REPLY_SKIP` plus target announce step with `ANNOUNCE_SKIP` (max turns configurable, 0–5).
 - Gateway: support `gateway.port` + `CLAWDIS_GATEWAY_PORT` across CLI, TUI, and macOS app.
 - Gateway: add config hot reload with hybrid restart strategy (`gateway.reload`) and per-section reload handling.
 - UI: centralize tool display metadata and show action/detail summaries across Web Chat, SwiftUI, Android, and the TUI.
 - Control UI: support configurable base paths (`gateway.controlUi.basePath`, default unchanged) for hosting under URL prefixes.
 - Onboarding: shared wizard engine powering CLI + macOS via gateway wizard RPC.
 - Config: expose schema + UI hints for generic config forms (Web UI + future clients).
+- Browser: add multi-profile browser control with per-profile remote CDP URLs — thanks @jamesgroat.
 - Skills: add blogwatcher skill for RSS/Atom monitoring — thanks @Hyaxia.
+- Skills: add Notion API skill — thanks @scald.
 - Discord: emit system events for reaction add/remove with per-guild reaction notifications (off|own|all|allowlist) (#140) — thanks @thewilloftheshadow.
+- Slack: add socket-mode connector, tools, and UI/docs updates (#170) — thanks @thewilloftheshadow.
 - Agent: add optional per-session Docker sandbox for tool execution (`agent.sandbox`) with allow/deny policy and auto-pruning.
 - Agent: add sandboxed Chromium browser (CDP + optional noVNC observer) for sandboxed sessions.
 - Nodes: add `location.get` with Always/Precise settings on macOS/iOS/Android plus CLI/tool support.
 
 ### Fixes
+- macOS: improve Swift 6 strict concurrency compatibility (#166) — thanks @Nachx639.
 - CI: fix lint ordering after merge cleanup (#156) — thanks @steipete.
 - CI: consolidate checks to avoid redundant installs (#144) — thanks @thewilloftheshadow.
 - WhatsApp: support `gifPlayback` for MP4 GIF sends via CLI/gateway.
+- Gateway: log config hot reloads for dynamic-read changes without restarts.
 - Sessions: prevent `sessions_send` timeouts by running nested agent turns on a separate lane.
 - Sessions: use per-send run IDs for gateway agent calls to avoid wait collisions.
 - Auto-reply: drop final payloads when block streaming to avoid duplicate Discord sends.
@@ -37,6 +43,7 @@
 - Gmail hooks: resolve gcloud Python to a real executable when PATH uses mise shims — thanks @joargp.
 - Control UI: generate UUIDs when `crypto.randomUUID()` is unavailable over HTTP — thanks @ratulsarna.
 - Control UI: stream live tool output cards in Chat (agent events include sessionKey).
+- Chat UI: render assistant `<think>`/`<final>` markup as italic thinking text in history + streaming instead of showing raw tags.
 - Agent: add soft block-stream chunking (800–1200 chars default) with paragraph/newline preference.
 - Agent: route embedded run lifecycle logs through subsystem console formatting and reduce log noise.
 - Agent tools: scope the Discord tool to Discord surface runs.
@@ -56,6 +63,7 @@
 - Build: drop stale ClawdisCLI product from macOS build-and-run script.
 - Auto-reply: add run-level telemetry + typing TTL guardrails to diagnose stuck replies.
 - WhatsApp: honor per-group mention gating overrides when group ids are stored as session keys.
+- Slack: add missing deps and wire Slack into cron/heartbeat/hook delivery.
 - Dependencies: bump pi-mono packages to 0.32.3.
 
 ### Docs
@@ -70,6 +78,8 @@
 - Queue: clarify steer-backlog behavior with inline commands and update examples for streaming surfaces.
 - Sandbox: document per-session agent sandbox setup, browser image, and Docker build.
 - macOS: clarify menu bar uses sessionKey from agent events.
+- Sessions: document agent-to-agent reply loop (`REPLY_SKIP`) and announce step (`ANNOUNCE_SKIP`).
+- Skills: clarify wacli third-party messaging scope and JID format examples.
 
 ## 2.0.0-beta5 — 2026-01-03
 

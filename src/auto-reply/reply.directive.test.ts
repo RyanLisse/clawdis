@@ -13,6 +13,7 @@ import {
 } from "../config/sessions.js";
 import { drainSystemEvents } from "../infra/system-events.js";
 import {
+  extractElevatedDirective,
   extractQueueDirective,
   extractReplyToTag,
   extractThinkDirective,
@@ -83,6 +84,12 @@ describe("directive parsing", () => {
     const res = extractVerboseDirective(" please /verbose on now");
     expect(res.hasDirective).toBe(true);
     expect(res.verboseLevel).toBe("on");
+  });
+
+  it("matches elevated with leading space", () => {
+    const res = extractElevatedDirective(" please /elevated on now");
+    expect(res.hasDirective).toBe(true);
+    expect(res.elevatedLevel).toBe("on");
   });
 
   it("matches think at start of line", () => {
@@ -288,6 +295,38 @@ describe("directive parsing", () => {
 
       const text = Array.isArray(res) ? res[0]?.text : res?.text;
       expect(text).toMatch(/^⚙️ Verbose logging enabled\./);
+      expect(runEmbeddedPiAgent).not.toHaveBeenCalled();
+    });
+  });
+
+  it("rejects invalid elevated level", async () => {
+    await withTempHome(async (home) => {
+      vi.mocked(runEmbeddedPiAgent).mockReset();
+
+      const res = await getReplyFromConfig(
+        {
+          Body: "/elevated maybe",
+          From: "+1222",
+          To: "+1222",
+          Surface: "whatsapp",
+          SenderE164: "+1222",
+        },
+        {},
+        {
+          agent: {
+            model: "anthropic/claude-opus-4-5",
+            workspace: path.join(home, "clawd"),
+            elevated: {
+              allowFrom: { whatsapp: ["+1222"] },
+            },
+          },
+          whatsapp: { allowFrom: ["+1222"] },
+          session: { store: path.join(home, "sessions.json") },
+        },
+      );
+
+      const text = Array.isArray(res) ? res[0]?.text : res?.text;
+      expect(text).toContain("Unrecognized elevated level");
       expect(runEmbeddedPiAgent).not.toHaveBeenCalled();
     });
   });
@@ -742,6 +781,51 @@ describe("directive parsing", () => {
       expect(runEmbeddedPiAgent).toHaveBeenCalledOnce();
       const call = vi.mocked(runEmbeddedPiAgent).mock.calls[0]?.[0];
       expect(call?.thinkLevel).toBe("low");
+    });
+  });
+
+  it("passes elevated defaults when sender is approved", async () => {
+    await withTempHome(async (home) => {
+      const storePath = path.join(home, "sessions.json");
+      vi.mocked(runEmbeddedPiAgent).mockResolvedValue({
+        payloads: [{ text: "done" }],
+        meta: {
+          durationMs: 5,
+          agentMeta: { sessionId: "s", provider: "p", model: "m" },
+        },
+      });
+
+      await getReplyFromConfig(
+        {
+          Body: "hello",
+          From: "+1004",
+          To: "+2000",
+          Surface: "whatsapp",
+          SenderE164: "+1004",
+        },
+        {},
+        {
+          agent: {
+            model: "anthropic/claude-opus-4-5",
+            workspace: path.join(home, "clawd"),
+            elevated: {
+              allowFrom: { whatsapp: ["+1004"] },
+            },
+          },
+          whatsapp: {
+            allowFrom: ["*"],
+          },
+          session: { store: storePath },
+        },
+      );
+
+      expect(runEmbeddedPiAgent).toHaveBeenCalledOnce();
+      const call = vi.mocked(runEmbeddedPiAgent).mock.calls[0]?.[0];
+      expect(call?.bashElevated).toEqual({
+        enabled: true,
+        allowed: true,
+        defaultLevel: "on",
+      });
     });
   });
 });
