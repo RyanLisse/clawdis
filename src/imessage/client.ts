@@ -149,9 +149,9 @@ export class IMessageRpcClient {
       const timer =
         timeoutMs > 0
           ? setTimeout(() => {
-              this.pending.delete(key);
-              reject(new Error(`imsg rpc timeout (${method})`));
-            }, timeoutMs)
+            this.pending.delete(key);
+            reject(new Error(`imsg rpc timeout (${method})`));
+          }, timeoutMs)
           : undefined;
       this.pending.set(key, {
         resolve: (value) => resolve(value as T),
@@ -169,6 +169,15 @@ export class IMessageRpcClient {
     try {
       parsed = JSON.parse(line) as IMessageRpcResponse<unknown>;
     } catch (err) {
+      if (
+        line.includes("permissionDenied") ||
+        line.includes("authorization denied")
+      ) {
+        this.runtime?.error?.(
+          "imsg permission denied: Please grant Full Disk Access to your terminal or IDE.",
+        );
+        return;
+      }
       const detail = err instanceof Error ? err.message : String(err);
       this.runtime?.error?.(`imsg rpc: failed to parse ${line}: ${detail}`);
       return;
