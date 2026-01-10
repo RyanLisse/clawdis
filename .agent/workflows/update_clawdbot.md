@@ -14,6 +14,9 @@ git fetch upstream && git rev-list --left-right --count main...upstream/main
 
 # Full sync (rebase preferred)
 git fetch upstream && git rebase upstream/main && pnpm install && pnpm build && ./scripts/restart-mac.sh
+
+# Check for Swift 6.2 issues after sync
+grep -r "FileManager\.default\|Thread\.isMainThread" src/ apps/ --include="*.swift"
 ```
 
 ---
@@ -162,6 +165,72 @@ pnpm clawdbot agent --message "Verification: macOS app rebuild successful - agen
 
 ---
 
+## Step 5: Handle Swift/macOS Build Issues (Common After Upstream Sync)
+
+Upstream updates may introduce Swift 6.2 / macOS 26 SDK incompatibilities. Use analyze-mode for systematic debugging:
+
+### Analyze-Mode Investigation
+```bash
+# Gather context with parallel agents
+morph-mcp_warpgrep_codebase_search search_string="Find deprecated FileManager.default and Thread.isMainThread usages in Swift files" repo_path="/Volumes/Main SSD/Developer/clawdis"
+morph-mcp_warpgrep_codebase_search search_string="Locate Peekaboo submodule and macOS app Swift files with concurrency issues" repo_path="/Volumes/Main SSD/Developer/clawdis"
+```
+
+### Common Swift 6.2 Fixes
+
+**FileManager.default Deprecation:**
+```bash
+# Search for deprecated usage
+grep -r "FileManager\.default" src/ apps/ --include="*.swift"
+
+# Replace with proper initialization
+# OLD: FileManager.default
+# NEW: FileManager()
+```
+
+**Thread.isMainThread Deprecation:**
+```bash
+# Search for deprecated usage
+grep -r "Thread\.isMainThread" src/ apps/ --include="*.swift"
+
+# Replace with modern concurrency check
+# OLD: Thread.isMainThread
+# NEW: await MainActor.run { ... } or DispatchQueue.main.sync { ... }
+```
+
+### Peekaboo Submodule Fixes
+```bash
+# Check Peekaboo for concurrency issues
+cd src/canvas-host/a2ui
+grep -r "Thread\.isMainThread\|FileManager\.default" . --include="*.swift"
+
+# Fix and rebuild submodule
+cd /Volumes/Main SSD/Developer/clawdis
+pnpm canvas:a2ui:bundle
+```
+
+### macOS App Concurrency Fixes
+```bash
+# Check macOS app for issues
+grep -r "Thread\.isMainThread\|FileManager\.default" apps/macos/ --include="*.swift"
+
+# Clean and rebuild after fixes
+cd apps/macos && rm -rf .build .swiftpm
+./scripts/restart-mac.sh
+```
+
+### Model Configuration Updates
+If upstream introduced new model configurations:
+```bash
+# Check for OpenRouter API key requirements
+grep -r "openrouter\|OPENROUTER" src/ --include="*.ts" --include="*.js"
+
+# Update clawdbot.json with fallback chains
+# Add model fallback configurations as needed
+```
+
+---
+
 ## Step 6: Verify & Push
 
 ```bash
@@ -211,6 +280,41 @@ pnpm install 2>&1 | grep -i patch
 # Check patches/ directory against package.json patchedDependencies
 ```
 
+### Swift 6.2 / macOS 26 SDK Build Failures
+
+**Symptoms:** Build fails with deprecation warnings about `FileManager.default` or `Thread.isMainThread`
+
+**Search-Mode Investigation:**
+```bash
+# Exhaustive search for deprecated APIs
+morph-mcp_warpgrep_codebase_search search_string="Find all Swift files using deprecated FileManager.default or Thread.isMainThread" repo_path="/Volumes/Main SSD/Developer/clawdis"
+```
+
+**Quick Fix Commands:**
+```bash
+# Find all affected files
+find . -name "*.swift" -exec grep -l "FileManager\.default\|Thread\.isMainThread" {} \;
+
+# Replace FileManager.default with FileManager()
+find . -name "*.swift" -exec sed -i '' 's/FileManager\.default/FileManager()/g' {} \;
+
+# For Thread.isMainThread, need manual review of each usage
+grep -rn "Thread\.isMainThread" --include="*.swift" .
+```
+
+**Rebuild After Fixes:**
+```bash
+# Clean all build artifacts
+rm -rf apps/macos/.build apps/macos/.swiftpm
+rm -rf src/canvas-host/a2ui/.build
+
+# Rebuild Peekaboo bundle
+pnpm canvas:a2ui:bundle
+
+# Full macOS rebuild
+./scripts/restart-mac.sh
+```
+
 ---
 
 ## Automation Script
@@ -245,6 +349,14 @@ echo "==> Rebuilding macOS app..."
 
 echo "==> Verifying gateway health..."
 pnpm clawdbot health
+
+echo "==> Checking for Swift 6.2 compatibility issues..."
+if grep -r "FileManager\.default\|Thread\.isMainThread" src/ apps/ --include="*.swift" --quiet; then
+    echo "⚠️  Found potential Swift 6.2 deprecated API usage"
+    echo "   Run manual fixes or use analyze-mode investigation"
+else
+    echo "✅ No obvious Swift deprecation issues found"
+fi
 
 echo "==> Testing agent functionality..."
 # Note: Update YOUR_TELEGRAM_SESSION_ID with actual session ID
