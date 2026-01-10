@@ -345,7 +345,7 @@ function hasGoogleTurnOrderingMarker(sessionManager: SessionManager): boolean {
         (entry) =>
           (entry as CustomEntryLike)?.type === "custom" &&
           (entry as CustomEntryLike)?.customType ===
-            GOOGLE_TURN_ORDERING_CUSTOM_TYPE,
+          GOOGLE_TURN_ORDERING_CUSTOM_TYPE,
       );
   } catch {
     return false;
@@ -921,6 +921,7 @@ export async function compactEmbeddedPiSession(params: {
     ((task, opts) => enqueueCommandInLane(globalLane, task, opts));
   return enqueueCommandInLane(sessionLane, () =>
     enqueueGlobal(async () => {
+      const runAbortController = new AbortController();
       const resolvedWorkspace = resolveUserPath(params.workspaceDir);
       const prevCwd = process.cwd();
 
@@ -984,13 +985,13 @@ export async function compactEmbeddedPiSession(params: {
           : [];
         restoreSkillEnv = params.skillsSnapshot
           ? applySkillEnvOverridesFromSnapshot({
-              snapshot: params.skillsSnapshot,
-              config: params.config,
-            })
+            snapshot: params.skillsSnapshot,
+            config: params.config,
+          })
           : applySkillEnvOverrides({
-              skills: skillEntries ?? [],
-              config: params.config,
-            });
+            skills: skillEntries ?? [],
+            config: params.config,
+          });
         const skillsPrompt = resolveSkillsPromptForRun({
           skillsSnapshot: params.skillsSnapshot,
           entries: shouldLoadSkillEntries ? skillEntries : undefined,
@@ -1027,10 +1028,10 @@ export async function compactEmbeddedPiSession(params: {
         );
         const runtimeCapabilities = runtimeProvider
           ? (resolveProviderCapabilities({
-              cfg: params.config,
-              provider: runtimeProvider,
-              accountId: params.agentAccountId,
-            }) ?? [])
+            cfg: params.config,
+            provider: runtimeProvider,
+            accountId: params.agentAccountId,
+          }) ?? [])
           : undefined;
         const runtimeInfo = {
           host: machineName,
@@ -1386,13 +1387,13 @@ export async function runEmbeddedPiAgent(params: {
             : [];
           restoreSkillEnv = params.skillsSnapshot
             ? applySkillEnvOverridesFromSnapshot({
-                snapshot: params.skillsSnapshot,
-                config: params.config,
-              })
+              snapshot: params.skillsSnapshot,
+              config: params.config,
+            })
             : applySkillEnvOverrides({
-                skills: skillEntries ?? [],
-                config: params.config,
-              });
+              skills: skillEntries ?? [],
+              config: params.config,
+            });
           const skillsPrompt = resolveSkillsPromptForRun({
             skillsSnapshot: params.skillsSnapshot,
             entries: shouldLoadSkillEntries ? skillEntries : undefined,

@@ -5,28 +5,28 @@ description: General-purpose orchestration for Codex. Uses update_plan plus back
 
 # Codex orchestration
 
-You are the orchestrator. You decide the shape of the work, delegate clearly, and deliver a clean result.
-Workers do the legwork. You own judgement.
+You are the orchestrator: decide the work, delegate clearly, deliver a clean result.
+Workers do the legwork; you own judgement.
 
 This guide is steering, not bureaucracy. Use common sense. If something is simple, just do it.
 
 ## Default assumptions
-- YOLO config (no approvals), web search enabled.
+- YOLO config (no approvals); web search enabled.
 - PTY execution available via `exec_command` and `write_stdin`.
-- Codex already knows how to use its tools. The point here is coordination and good decomposition.
+- Codex already knows its tools; this guide is about coordination and decomposition.
 
 ## Two modes
 
 ### Orchestrator mode (default)
 - Split work into sensible tracks.
-- Run parallel workers when it helps.
+- Use parallel workers when it helps.
 - Keep the main thread for synthesis, decisions, and final output.
 
 ### Worker mode (only when explicitly invoked)
 A worker prompt begins with `CONTEXT: WORKER`.
 - Do only the assigned task.
 - Do not spawn other workers.
-- Report back crisply with evidence and artefacts.
+- Report back crisply with evidence.
 
 ## Planning with `update_plan`
 Use `update_plan` when any of these apply:
@@ -45,9 +45,9 @@ Keep it light:
 A sub-agent is a background terminal running `codex exec` with a focused worker prompt.
 
 Use parallel workers for:
-- Scouting and mapping (where things are, what the current state is)
-- Independent reviews (different perspectives on the same artefact)
-- Web research (sources, definitions, facts, comparisons)
+- Scouting and mapping (where things are, current state)
+- Independent reviews (different lenses on the same artefact)
+- Web research (sources, definitions, comparisons)
 - Long-running checks (tests, builds, analyses, data pipelines)
 - Drafting alternatives (outlines, rewrites, options)
 
@@ -66,11 +66,11 @@ Practical habits:
 - Default to non-blocking: start the worker, capture its `session_id`, and move on.
 - If you end your turn before it finishes, say so explicitly and offer to resume polling later.
 - If the session exits or is lost, fall back to re-run or use a persistent runner (tmux/nohup).
+- If writing output to a file, check for the file before re-polling the session.
 
 Blocking vs non-blocking (recommend non-blocking even if you plan to poll):
-- Non-blocking by default; poll once or twice if you need quick feedback.
-- Blocking is fine only for short, predictable tasks (<30–60s) where you need the result immediately.
-- If unsure, start non-blocking and poll; you can still complete fast without stalling.
+- Default to non-blocking; poll once or twice if you need quick feedback.
+- Blocking is fine only for short, predictable tasks (<30–60s).
 
 Stopping jobs:
 - Prefer graceful shutdown when possible.
@@ -81,7 +81,8 @@ Prefer capturing only the final worker message to avoid bloating the main contex
 
 Recommended (simple):
 - Use `--output-last-message` to write the final response to a file, then read it.
-- Example: `codex exec --output-last-message /tmp/w1.txt "CONTEXT: WORKER ..."`
+- Example: `codex exec --skip-git-repo-check --output-last-message /tmp/w1.txt "CONTEXT: WORKER ..."`
+- If you are outside a git repo, add `--skip-git-repo-check`.
 
 Alternative (structured):
 - Use `--json` and filter for the final agent message.
@@ -92,19 +93,19 @@ Alternative (structured):
 Pick a pattern, then run it. Do not over-engineer.
 
 ### Pattern A: Triangulated review (fan-out, read-only)
-Use when: you want multiple perspectives on the same thing (code, manuscript, report, analysis output, plan, slide deck).
+Use when: you want multiple perspectives on the same thing.
 
-Run 2 to 4 reviewers, each with a different lens, then merge.
+Run 2 to 4 reviewers with different lenses, then merge.
 
-Example lenses (choose what fits, mix and match):
-- Clarity and structure (is it understandable, well organised)
-- Correctness and completeness (does it actually answer the question, are steps missing)
-- Risks and failure modes (what could go wrong, what assumptions could break)
-- Consistency and style (terminology, tone, formatting, conventions)
-- Evidence quality (are claims supported, are citations appropriate)
-- Practicality (is it actionable, realistic, proportionate)
-- Accessibility and audience fit (who is this for, does it meet them where they are)
-- If relevant: security, performance, backwards compatibility (only when it actually matters)
+Example lenses (choose what fits):
+- Clarity/structure
+- Correctness/completeness
+- Risks/failure modes
+- Consistency/style
+- Evidence quality
+- Practicality
+- Accessibility/audience fit
+- If relevant: security, performance, backward compatibility
 
 Deliverable: a single ranked list with duplicates removed and clear recommendations.
 
@@ -118,22 +119,22 @@ This works for code, documents, and analyses.
 
 ### Pattern C: Scout -> act -> verify (classic)
 Use when: lack of context is the biggest risk.
-1) Scout gathers the minimum context needed.
+1) Scout gathers the minimum context.
 2) Orchestrator condenses it and chooses the approach.
 3) Implementer executes.
 4) Verifier sanity-checks.
 
 ### Pattern D: Split by sections (fan-out, then merge)
-Use when: work divides cleanly (document sections, dataset subsets, modules, chapters, figures).
-Each worker owns a distinct slice. Then a final merge pass ensures consistency.
+Use when: work divides cleanly (sections, modules, datasets, figures).
+Each worker owns a distinct slice; merge for consistency.
 
 ### Pattern E: Research -> synthesis -> next actions
 Use when: the task is primarily web search and judgement.
-Workers collect sources in parallel. Orchestrator synthesises into a short, decision-ready brief.
+Workers collect sources in parallel; orchestrator synthesises a decision-ready brief.
 
 ### Pattern F: Options sprint (generate 2 to 3 good alternatives)
-Use when: you are choosing direction (outline, methods plan, analysis approach, UI approach).
-Workers propose options. Orchestrator selects and refines one.
+Use when: you are choosing direction (outline, methods plan, analysis, UI).
+Workers propose options; orchestrator selects and refines one.
 
 ## Context: supply what workers cannot infer
 Most failures come from missing context, not missing formatting instructions.
@@ -142,7 +143,7 @@ Use a Context Pack when:
 - the work touches an existing project with history,
 - the goal is subtle,
 - constraints are non-obvious,
-- or you have preferences that matter.
+- or preferences matter.
 
 Skip it when:
 - the task is a simple web lookup,
@@ -150,7 +151,7 @@ Skip it when:
 - or a straightforward one-off.
 
 ### Context Pack (use as much or as little as needed)
-- Goal: what "good" looks like, in a paragraph.
+- Goal: what "good" looks like.
 - Non-goals: what not to do.
 - Constraints: style, scope boundaries, must keep, must not change.
 - Pointers: key files, folders, documents, notes, links.
@@ -158,13 +159,33 @@ Skip it when:
 - Success check: how we know it is done (tests, criteria, checklist).
 
 Academic writing note:
-- If producing manuscripts or scholarly text, use APA 7 style where appropriate.
+- For manuscripts or scholarly text, use APA 7 where appropriate.
 
 ## Worker prompt templates (neutral)
 
+Prepend the Worker preamble to every worker prompt.
+
+### Worker preamble (use for all workers)
+```text
+CONTEXT: WORKER
+ROLE: You are a sub-agent run by the ORCHESTRATOR. Do only the assigned task.
+RULES: No extra scope, no other workers.
+Your final output will be provided back to the ORCHESTRATOR.
+```
+
+Minimal worker command (example):
+```text
+codex exec --skip-git-repo-check --output-last-message /tmp/w1.txt "CONTEXT: WORKER
+ROLE: You are a sub-agent run by the ORCHESTRATOR. Do only the assigned task.
+RULES: No extra scope, no other workers.
+Your final output will be provided back to the ORCHESTRATOR.
+TASK: <what to do>
+SCOPE: read-only"
+```
+
 ### Reviewer worker
 CONTEXT: WORKER  
-TASK: Review <artefact> and produce high-impact improvements.  
+TASK: Review <artefact> and produce improvements.  
 SCOPE: read-only  
 LENS: <pick one or two lenses>  
 DO:
@@ -172,9 +193,9 @@ DO:
 - Prioritise what matters most.
 OUTPUT:
 - Top findings (ranked, brief)
-- Evidence (where you saw it, what supports it)
+- Evidence (where you saw it)
 - Recommended fixes (concise, actionable)
-- Optional: quick rewrite or outline snippet if helpful  
+- Optional: quick rewrite or outline snippet  
 DO NOT:
 - Expand scope
 - Make edits
@@ -189,7 +210,7 @@ DO:
 OUTPUT:
 - 5 to 10 bullet synthesis
 - Key sources (with short notes on why they matter)
-- Any uncertainty or disagreements between sources  
+- Uncertainty or disagreements between sources  
 DO NOT:
 - Speculate beyond evidence
 
@@ -217,12 +238,14 @@ DO:
 - Look for obvious omissions and regressions.
 OUTPUT:
 - Pass/fail summary
-- Any issues with repro steps or concrete examples
+- Issues with repro steps or concrete examples
 - Suggested fixes (brief)
 
 ## Orchestrator habits (fast, not fussy)
+- Skim the artefact yourself before delegating.
+- Ask a quick clarification if a term or goal is ambiguous.
 - Use parallel workers when it reduces time or uncertainty.
-- Keep instructions short and context-rich.
+- Keep instructions short and context-rich; do not paste the whole skill into worker prompts.
 - If a worker misunderstood, do not argue. Re-run with better context.
 - Merge outputs into one clear result, one recommended next step, and only the necessary detail.
 

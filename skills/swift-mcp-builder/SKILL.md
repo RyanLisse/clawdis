@@ -484,8 +484,7 @@ mkdir -p /Users/cortex-mini/Developer/clawdis/skills/{projectname}
 
 Study these for patterns:
 - **Braindump** (`/Users/cortex-mini/Developer/Braindump/`): Notes + Reminders
-- **Contactbook** (`/Users/cortex-mini/Developer/Contactbook/`): Contacts
-- **Vitalink** (`/Users/cortex-mini/Developer/Vitalink/`): HealthKit
+- **Quorum** (https://github.com/RyanLisse/Quorum): LLM Council Deep Research
 - **MCPorter** (https://github.com/steipete/mcporter): TypeScript MCP toolkit
 - **TauTUI** (https://github.com/steipete/TauTUI): Swift TUI patterns
 - **MCPLI** (https://github.com/cameroncooke/mcpli): CLI-first MCP approach
