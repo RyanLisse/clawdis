@@ -27,6 +27,12 @@ const UNSUPPORTED_SCHEMA_KEYWORDS = new Set([
   "uniqueItems",
   "minProperties",
   "maxProperties",
+
+  // Conditional schema keywords that may cause issues
+  "if",
+  "then",
+  "else",
+  "not",
 ]);
 
 // Check if an anyOf/oneOf array contains only literal values that can be flattened.
