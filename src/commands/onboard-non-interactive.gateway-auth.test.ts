@@ -58,8 +58,12 @@ async function onceMessage<T = unknown>(
   });
 }
 
-async function connectReq(params: { url: string; token?: string }) {
-  const ws = new WebSocket(params.url);
+async function connectReq(params: {
+  url: string;
+  token?: string;
+  headers?: Record<string, string>;
+}) {
+  const ws = new WebSocket(params.url, { headers: params.headers });
   await new Promise<void>((resolve) => ws.once("open", resolve));
   ws.send(
     JSON.stringify({
@@ -169,13 +173,18 @@ describe("onboard (non-interactive): gateway auth", () => {
       controlUiEnabled: false,
     });
     try {
-      const resNoToken = await connectReq({ url: `ws://127.0.0.1:${port}` });
+      // Use x-forwarded-for to bypass local connection bypass
+      const resNoToken = await connectReq({
+        url: `ws://127.0.0.1:${port}`,
+        headers: { "x-forwarded-for": "10.0.0.1" },
+      });
       expect(resNoToken.ok).toBe(false);
       expect(resNoToken.error?.message ?? "").toContain("unauthorized");
 
       const resToken = await connectReq({
         url: `ws://127.0.0.1:${port}`,
         token,
+        headers: { "x-forwarded-for": "10.0.0.1" },
       });
       expect(resToken.ok).toBe(true);
     } finally {

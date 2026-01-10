@@ -72,7 +72,15 @@ describe("gateway server auth/connect", () => {
   });
 
   test("rejects invalid token", async () => {
-    const { server, ws, prevToken } = await startServerWithClient("secret");
+    const prevToken = process.env.CLAWDBOT_GATEWAY_TOKEN;
+    process.env.CLAWDBOT_GATEWAY_TOKEN = "secret";
+    const port = await getFreePort();
+    const server = await startGatewayServer(port);
+    // Use x-forwarded-for to simulate non-local request (bypasses local bypass)
+    const ws = new WebSocket(`ws://127.0.0.1:${port}`, {
+      headers: { "x-forwarded-for": "10.0.0.1" },
+    });
+    await new Promise<void>((resolve) => ws.once("open", resolve));
     const res = await connectReq(ws, { token: "wrong" });
     expect(res.ok).toBe(false);
     expect(res.error?.message ?? "").toContain("unauthorized");
@@ -89,7 +97,10 @@ describe("gateway server auth/connect", () => {
     testState.gatewayAuth = { mode: "password", password: "secret" };
     const port = await getFreePort();
     const server = await startGatewayServer(port);
-    const ws = new WebSocket(`ws://127.0.0.1:${port}`);
+    // Use x-forwarded-for to simulate non-local request (bypasses local bypass)
+    const ws = new WebSocket(`ws://127.0.0.1:${port}`, {
+      headers: { "x-forwarded-for": "10.0.0.1" },
+    });
     await new Promise<void>((resolve) => ws.once("open", resolve));
 
     const res = await connectReq(ws, { password: "secret" });
@@ -103,7 +114,10 @@ describe("gateway server auth/connect", () => {
     testState.gatewayAuth = { mode: "password", password: "secret" };
     const port = await getFreePort();
     const server = await startGatewayServer(port);
-    const ws = new WebSocket(`ws://127.0.0.1:${port}`);
+    // Use x-forwarded-for to simulate non-local request (bypasses local bypass)
+    const ws = new WebSocket(`ws://127.0.0.1:${port}`, {
+      headers: { "x-forwarded-for": "10.0.0.1" },
+    });
     await new Promise<void>((resolve) => ws.once("open", resolve));
 
     const res = await connectReq(ws, { password: "wrong" });
