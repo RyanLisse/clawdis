@@ -149,9 +149,9 @@ export class IMessageRpcClient {
       const timer =
         timeoutMs > 0
           ? setTimeout(() => {
-            this.pending.delete(key);
-            reject(new Error(`imsg rpc timeout (${method})`));
-          }, timeoutMs)
+              this.pending.delete(key);
+              reject(new Error(`imsg rpc timeout (${method})`));
+            }, timeoutMs)
           : undefined;
       this.pending.set(key, {
         resolve: (value) => resolve(value as T),

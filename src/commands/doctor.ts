@@ -289,11 +289,13 @@ export async function doctorCommand(
   note(
     [
       `Eligible: ${skillsReport.skills.filter((s) => s.eligible).length}`,
-      `Missing requirements: ${skillsReport.skills.filter(
-        (s) => !s.eligible && !s.disabled && !s.blockedByAllowlist,
-      ).length
+      `Missing requirements: ${
+        skillsReport.skills.filter(
+          (s) => !s.eligible && !s.disabled && !s.blockedByAllowlist,
+        ).length
       }`,
-      `Blocked by allowlist: ${skillsReport.skills.filter((s) => s.blockedByAllowlist).length
+      `Blocked by allowlist: ${
+        skillsReport.skills.filter((s) => s.blockedByAllowlist).length
       }`,
     ].join("\n"),
     "Skills status",
