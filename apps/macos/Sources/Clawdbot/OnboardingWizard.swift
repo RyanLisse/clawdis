@@ -1,10 +1,10 @@
-import ClawdisProtocol
+import ClawdbotProtocol
 import Foundation
 import Observation
 import OSLog
 import SwiftUI
 
-private let onboardingWizardLogger = Logger(subsystem: "com.clawdis", category: "onboarding.wizard")
+private let onboardingWizardLogger = Logger(subsystem: "com.clawdbot", category: "onboarding.wizard")
 
 @MainActor
 @Observable

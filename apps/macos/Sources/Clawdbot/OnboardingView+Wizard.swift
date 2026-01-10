@@ -1,4 +1,4 @@
-import ClawdisProtocol
+import ClawdbotProtocol
 import Observation
 import SwiftUI
 

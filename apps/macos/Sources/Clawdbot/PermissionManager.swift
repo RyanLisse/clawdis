@@ -1,7 +1,7 @@
 import AppKit
 import ApplicationServices
 import AVFoundation
-import ClawdisIPC
+import ClawdbotIPC
 import CoreGraphics
 import CoreLocation
 import Foundation
@@ -365,14 +365,14 @@ final class LocationPermissionRequester: NSObject, CLLocationManagerDelegate {
 }
 
 enum AppleScriptPermission {
-    private static let logger = Logger(subsystem: "com.clawdis", category: "AppleScriptPermission")
+    private static let logger = Logger(subsystem: "com.clawdbot", category: "AppleScriptPermission")
 
     /// Sends a benign AppleScript to Terminal to verify Automation permission.
     @MainActor
     static func isAuthorized() -> Bool {
         let script = """
         tell application "Terminal"
-            return "clawdis-ok"
+            return "clawdbot-ok"
         end tell
         """
 

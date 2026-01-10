@@ -1,6 +1,6 @@
 import AppKit
-import ClawdisIPC
-import ClawdisKit
+import ClawdbotIPC
+import ClawdbotKit
 import CoreLocation
 import Observation
 import SwiftUI
@@ -8,7 +8,7 @@ import SwiftUI
 struct GeneralSettings: View {
     @Bindable var state: AppState
     @AppStorage(cameraEnabledKey) private var cameraEnabled: Bool = false
-    @AppStorage(locationModeKey) private var locationModeRaw: String = ClawdisLocationMode.off.rawValue
+    @AppStorage(locationModeKey) private var locationModeRaw: String = ClawdbotLocationMode.off.rawValue
     @AppStorage(locationPreciseKey) private var locationPreciseEnabled: Bool = true
     private let healthStore = HealthStore.shared
     private let gatewayManager = GatewayProcessManager.shared
@@ -23,7 +23,7 @@ struct GeneralSettings: View {
     @State private var showRemoteAdvanced = false
     private let isPreview = ProcessInfo.processInfo.isPreview
     private var isNixMode: Bool { ProcessInfo.processInfo.isNixMode }
-    @State private var lastLocationModeRaw: String = ClawdisLocationMode.off.rawValue
+    @State private var lastLocationModeRaw: String = ClawdbotLocationMode.off.rawValue
 
     var body: some View {
         ScrollView(.vertical) {
@@ -49,8 +49,8 @@ struct GeneralSettings: View {
 
                 VStack(alignment: .leading, spacing: 12) {
                     SettingsToggleRow(
-                        title: "Clawdis active",
-                        subtitle: "Pause to stop the Clawdis gateway; no messages will be processed.",
+                        title: "Clawdbot active",
+                        subtitle: "Pause to stop the Clawdbot gateway; no messages will be processed.",
                         binding: self.activeBinding)
 
                     self.connectionSection
@@ -59,12 +59,12 @@ struct GeneralSettings: View {
 
                     SettingsToggleRow(
                         title: "Launch at login",
-                        subtitle: "Automatically start Clawdis after you sign in.",
+                        subtitle: "Automatically start Clawdbot after you sign in.",
                         binding: self.$state.launchAtLogin)
 
                     SettingsToggleRow(
                         title: "Show Dock icon",
-                        subtitle: "Keep Clawdis visible in the Dock instead of menu-bar-only mode.",
+                        subtitle: "Keep Clawdbot visible in the Dock instead of menu-bar-only mode.",
                         binding: self.$state.showDockIcon)
 
                     SettingsToggleRow(
@@ -87,9 +87,9 @@ struct GeneralSettings: View {
                             .font(.body)
 
                         Picker("", selection: self.$locationModeRaw) {
-                            Text("Off").tag(ClawdisLocationMode.off.rawValue)
-                            Text("While Using").tag(ClawdisLocationMode.whileUsing.rawValue)
-                            Text("Always").tag(ClawdisLocationMode.always.rawValue)
+                            Text("Off").tag(ClawdbotLocationMode.off.rawValue)
+                            Text("While Using").tag(ClawdbotLocationMode.whileUsing.rawValue)
+                            Text("Always").tag(ClawdbotLocationMode.always.rawValue)
                         }
                         .pickerStyle(.segmented)
 
@@ -116,7 +116,7 @@ struct GeneralSettings: View {
                 Spacer(minLength: 12)
                 HStack {
                     Spacer()
-                    Button("Quit Clawdis") { NSApp.terminate(nil) }
+                    Button("Quit Clawdbot") { NSApp.terminate(nil) }
                         .buttonStyle(.borderedProminent)
                 }
             }
@@ -138,7 +138,7 @@ struct GeneralSettings: View {
         .onChange(of: self.locationModeRaw) { _, newValue in
             let previous = self.lastLocationModeRaw
             self.lastLocationModeRaw = newValue
-            guard let mode = ClawdisLocationMode(rawValue: newValue) else { return }
+            guard let mode = ClawdbotLocationMode(rawValue: newValue) else { return }
             Task {
                 let granted = await self.requestLocationAuthorization(mode: mode)
                 if !granted {
@@ -157,24 +157,25 @@ struct GeneralSettings: View {
             set: { self.state.isPaused = !$0 })
     }
 
-    private var locationMode: ClawdisLocationMode {
-        ClawdisLocationMode(rawValue: self.locationModeRaw) ?? .off
+    private var locationMode: ClawdbotLocationMode {
+        ClawdbotLocationMode(rawValue: self.locationModeRaw) ?? .off
     }
 
-    private func requestLocationAuthorization(mode: ClawdisLocationMode) async -> Bool {
+    private func requestLocationAuthorization(mode: ClawdbotLocationMode) async -> Bool {
         guard mode != .off else { return true }
         let status = CLLocationManager.authorizationStatus()
         // macOS only has authorizedAlways (no authorizedWhenInUse)
         if status == .authorizedAlways {
             return true
         }
+        let requireAlways = mode == .always
         let updated = await LocationPermissionRequester.shared.request(always: requireAlways)
         return PermissionManager.isLocationAuthorized(status: updated, requireAlways: requireAlways)
     }
 
     private var connectionSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Clawdis runs")
+            Text("Clawdbot runs")
                 .font(.title3.weight(.semibold))
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -259,12 +260,12 @@ struct GeneralSettings: View {
                             .frame(width: 280)
                     }
                     LabeledContent("Project root") {
-                        TextField("/home/you/Projects/clawdis", text: self.$state.remoteProjectRoot)
+                        TextField("/home/you/Projects/clawdbot", text: self.$state.remoteProjectRoot)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 280)
                     }
                     LabeledContent("CLI path") {
-                        TextField("/Applications/Clawdis.app/.../clawdis", text: self.$state.remoteCliPath)
+                        TextField("/Applications/Clawdbot.app/.../clawdbot", text: self.$state.remoteCliPath)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 280)
                     }
@@ -703,7 +704,7 @@ extension GeneralSettings {
         let alert = NSAlert()
         alert.messageText = "Log file not found"
         alert.informativeText = """
-        Looked for clawdis logs in /tmp/clawdis/.
+        Looked for clawdbot logs in /tmp/clawdbot/.
         Run a health check or send a message to generate activity, then try again.
         """
         alert.alertStyle = .informational
@@ -746,8 +747,8 @@ extension GeneralSettings {
         state.connectionMode = .remote
         state.remoteTarget = "user@host:2222"
         state.remoteIdentity = "/tmp/id_ed25519"
-        state.remoteProjectRoot = "/tmp/clawdis"
-        state.remoteCliPath = "/tmp/clawdis"
+        state.remoteProjectRoot = "/tmp/clawdbot"
+        state.remoteCliPath = "/tmp/clawdbot"
 
         let view = GeneralSettings(state: state)
         view.gatewayStatus = GatewayEnvironmentStatus(
@@ -759,7 +760,7 @@ extension GeneralSettings {
         view.remoteStatus = .failed("SSH failed")
         view.showRemoteAdvanced = true
         view.cliInstalled = true
-        view.cliInstallLocation = "/usr/local/bin/clawdis"
+        view.cliInstallLocation = "/usr/local/bin/clawdbot"
         view.cliStatus = "Installed"
         _ = view.body
 
