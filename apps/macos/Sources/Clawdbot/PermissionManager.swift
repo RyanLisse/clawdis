@@ -1,7 +1,7 @@
 import AppKit
 import ApplicationServices
 import AVFoundation
-import ClawdbotIPC
+import ClawdisIPC
 import CoreGraphics
 import CoreLocation
 import Foundation
@@ -138,9 +138,8 @@ enum PermissionManager {
     }
 
     private static func ensureLocation(interactive: Bool) async -> Bool {
-        let status = CLLocationManager().authorizationStatus
+        let status = CLLocationManager.authorizationStatus()
         switch status {
-        // Note: macOS only supports authorizedAlways, not authorizedWhenInUse (iOS only)
         case .authorizedAlways:
             return true
         case .notDetermined:
@@ -199,10 +198,8 @@ enum PermissionManager {
 
             case .camera:
                 results[cap] = AVCaptureDevice.authorizationStatus(for: .video) == .authorized
-
             case .location:
-                let status = CLLocationManager().authorizationStatus
-                // Note: macOS only supports authorizedAlways
+                let status = CLLocationManager.authorizationStatus()
                 results[cap] = status == .authorizedAlways
             }
         }
@@ -304,14 +301,14 @@ final class LocationPermissionRequester: NSObject, CLLocationManagerDelegate {
 }
 
 enum AppleScriptPermission {
-    private static let logger = Logger(subsystem: "com.clawdbot", category: "AppleScriptPermission")
+    private static let logger = Logger(subsystem: "com.clawdis", category: "AppleScriptPermission")
 
     /// Sends a benign AppleScript to Terminal to verify Automation permission.
     @MainActor
     static func isAuthorized() -> Bool {
         let script = """
         tell application "Terminal"
-            return "clawdbot-ok"
+            return "clawdis-ok"
         end tell
         """
 

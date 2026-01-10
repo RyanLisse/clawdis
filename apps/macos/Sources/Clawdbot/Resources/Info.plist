@@ -5,29 +5,29 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleExecutable</key>
-    <string>Clawdbot</string>
+    <string>Clawdis</string>
     <key>CFBundleIdentifier</key>
-    <string>com.clawdbot.mac</string>
+    <string>com.clawdis.mac</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>Clawdbot</string>
+    <string>Clawdis</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>2026.1.9</string>
+    <string>2.0.0</string>
     <key>CFBundleVersion</key>
-    <string>20260109</string>
+    <string>2.0.0-beta5</string>
     <key>CFBundleIconFile</key>
-    <string>Clawdbot</string>
+    <string>Clawdis</string>
     <key>CFBundleURLTypes</key>
     <array>
         <dict>
             <key>CFBundleURLName</key>
-            <string>com.clawdbot.mac.deeplink</string>
+            <string>com.clawdis.mac.deeplink</string>
             <key>CFBundleURLSchemes</key>
             <array>
-                <string>clawdbot</string>
+                <string>clawdis</string>
             </array>
         </dict>
     </array>
@@ -36,25 +36,25 @@
     <key>LSUIElement</key>
     <true/>
 
-    <key>ClawdbotBuildTimestamp</key>
+    <key>ClawdisBuildTimestamp</key>
     <string></string>
-    <key>ClawdbotGitCommit</key>
+    <key>ClawdisGitCommit</key>
     <string></string>
 
     <key>NSUserNotificationUsageDescription</key>
-    <string>Clawdbot needs notification permission to show alerts for agent actions.</string>
+    <string>Clawdis needs notification permission to show alerts for agent actions.</string>
     <key>NSScreenCaptureDescription</key>
-    <string>Clawdbot captures the screen when the agent needs screenshots for context.</string>
+    <string>Clawdis captures the screen when the agent needs screenshots for context.</string>
     <key>NSCameraUsageDescription</key>
-    <string>Clawdbot can capture photos or short video clips when requested by the agent.</string>
+    <string>Clawdis can capture photos or short video clips when requested by the agent.</string>
     <key>NSLocationUsageDescription</key>
-    <string>Clawdbot can share your location when requested by the agent.</string>
+    <string>Clawdis can share your location when requested by the agent.</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Clawdbot needs the mic for Voice Wake tests and agent audio capture.</string>
+    <string>Clawdis needs the mic for Voice Wake tests and agent audio capture.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
-    <string>Clawdbot uses speech recognition to detect your Voice Wake trigger phrase.</string>
+    <string>Clawdis uses speech recognition to detect your Voice Wake trigger phrase.</string>
     <key>NSAppleEventsUsageDescription</key>
-    <string>Clawdbot needs Automation (AppleScript) permission to drive Terminal and other apps for agent actions.</string>
+    <string>Clawdis needs Automation (AppleScript) permission to drive Terminal and other apps for agent actions.</string>
 
     <key>NSAppTransportSecurity</key>
     <dict>

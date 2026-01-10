@@ -29,20 +29,17 @@ final class AppState {
     }
 
     var launchAtLogin: Bool {
-        didSet {
-            guard !self.isInitializing else { return }
-            self.ifNotPreview { Task { AppStateStore.updateLaunchAtLogin(enabled: self.launchAtLogin) } }
-        }
+        didSet { self.ifNotPreview { Task { AppStateStore.updateLaunchAtLogin(enabled: self.launchAtLogin) } } }
     }
 
     var onboardingSeen: Bool {
-        didSet { self.ifNotPreview { UserDefaults.standard.set(self.onboardingSeen, forKey: "clawdbot.onboardingSeen") }
+        didSet { self.ifNotPreview { UserDefaults.standard.set(self.onboardingSeen, forKey: "clawdis.onboardingSeen") }
         }
     }
 
     var debugPaneEnabled: Bool {
         didSet {
-            self.ifNotPreview { UserDefaults.standard.set(self.debugPaneEnabled, forKey: "clawdbot.debugPaneEnabled") }
+            self.ifNotPreview { UserDefaults.standard.set(self.debugPaneEnabled, forKey: "clawdis.debugPaneEnabled") }
             CanvasManager.shared.refreshDebugStatus()
         }
     }
@@ -101,10 +98,6 @@ final class AppState {
                 }
             }
         }
-    }
-
-    var voiceWakeMicName: String {
-        didSet { self.ifNotPreview { UserDefaults.standard.set(self.voiceWakeMicName, forKey: voiceWakeMicNameKey) } }
     }
 
     var voiceWakeLocaleID: String {
@@ -213,11 +206,11 @@ final class AppState {
 
     init(preview: Bool = false) {
         self.isPreview = preview
-        let onboardingSeen = UserDefaults.standard.bool(forKey: "clawdbot.onboardingSeen")
+        let onboardingSeen = UserDefaults.standard.bool(forKey: "clawdis.onboardingSeen")
         self.isPaused = UserDefaults.standard.bool(forKey: pauseDefaultsKey)
         self.launchAtLogin = false
         self.onboardingSeen = onboardingSeen
-        self.debugPaneEnabled = UserDefaults.standard.bool(forKey: "clawdbot.debugPaneEnabled")
+        self.debugPaneEnabled = UserDefaults.standard.bool(forKey: "clawdis.debugPaneEnabled")
         let savedVoiceWake = UserDefaults.standard.bool(forKey: swabbleEnabledKey)
         self.swabbleEnabled = voiceWakeSupported ? savedVoiceWake : false
         self.swabbleTriggerWords = UserDefaults.standard
@@ -236,7 +229,6 @@ final class AppState {
         }
         self.showDockIcon = UserDefaults.standard.bool(forKey: showDockIconKey)
         self.voiceWakeMicID = UserDefaults.standard.string(forKey: voiceWakeMicKey) ?? ""
-        self.voiceWakeMicName = UserDefaults.standard.string(forKey: voiceWakeMicNameKey) ?? ""
         self.voiceWakeLocaleID = UserDefaults.standard.string(forKey: voiceWakeLocaleKey) ?? Locale.current.identifier
         self.voiceWakeAdditionalLocaleIDs = UserDefaults.standard
             .stringArray(forKey: voiceWakeAdditionalLocalesKey) ?? []
@@ -259,36 +251,38 @@ final class AppState {
             UserDefaults.standard.set(IconOverrideSelection.system.rawValue, forKey: iconOverrideKey)
         }
 
-        let configRoot = ClawdbotConfigFile.loadDict()
+        let configRoot = ClawdisConfigFile.loadDict()
         let configGateway = configRoot["gateway"] as? [String: Any]
         let configModeRaw = (configGateway?["mode"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let configMode: ConnectionMode? = switch configModeRaw {
-        case "local":
-            .local
-        case "remote":
-            .remote
-        default:
-            nil
-        }
+        let configMode: ConnectionMode? = {
+            switch configModeRaw {
+            case "local":
+                return .local
+            case "remote":
+                return .remote
+            default:
+                return nil
+            }
+        }()
         let configRemoteUrl = (configGateway?["remote"] as? [String: Any])?["url"] as? String
         let configHasRemoteUrl = !(configRemoteUrl?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .isEmpty ?? true)
 
         let storedMode = UserDefaults.standard.string(forKey: connectionModeKey)
-        let resolvedConnectionMode: ConnectionMode = if let configMode {
-            configMode
+        let resolvedMode: ConnectionMode
+        if let configMode {
+            resolvedMode = configMode
         } else if configHasRemoteUrl {
-            .remote
+            resolvedMode = .remote
         } else if let storedMode {
-            ConnectionMode(rawValue: storedMode) ?? .local
+            resolvedMode = ConnectionMode(rawValue: storedMode) ?? .local
         } else {
-            onboardingSeen ? .local : .unconfigured
+            resolvedMode = onboardingSeen ? .local : .unconfigured
         }
-        self.connectionMode = resolvedConnectionMode
 
         let storedRemoteTarget = UserDefaults.standard.string(forKey: remoteTargetKey) ?? ""
-        if resolvedConnectionMode == .remote,
+        if resolvedMode == .remote,
            storedRemoteTarget.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
            let host = AppState.remoteHost(from: configRemoteUrl)
         {
@@ -299,6 +293,7 @@ final class AppState {
         self.remoteIdentity = UserDefaults.standard.string(forKey: remoteIdentityKey) ?? ""
         self.remoteProjectRoot = UserDefaults.standard.string(forKey: remoteProjectRootKey) ?? ""
         self.remoteCliPath = UserDefaults.standard.string(forKey: remoteCliPathKey) ?? ""
+        self.connectionMode = resolvedMode
         self.canvasEnabled = UserDefaults.standard.object(forKey: canvasEnabledKey) as? Bool ?? true
         self.peekabooBridgeEnabled = UserDefaults.standard
             .object(forKey: peekabooBridgeEnabledKey) as? Bool ?? true
@@ -329,11 +324,6 @@ final class AppState {
         }
     }
 
-    @MainActor
-    deinit {
-        self.configWatcher?.stop()
-    }
-
     private static func remoteHost(from urlString: String?) -> String? {
         guard let raw = urlString?.trimmingCharacters(in: .whitespacesAndNewlines),
               !raw.isEmpty,
@@ -347,7 +337,7 @@ final class AppState {
     }
 
     private func startConfigWatcher() {
-        let configUrl = ClawdbotConfigFile.url()
+        let configUrl = ClawdisConfigFile.url()
         self.configWatcher = ConfigFileWatcher(url: configUrl) { [weak self] in
             Task { @MainActor in
                 self?.applyConfigFromDisk()
@@ -357,7 +347,7 @@ final class AppState {
     }
 
     private func applyConfigFromDisk() {
-        let root = ClawdbotConfigFile.loadDict()
+        let root = ClawdisConfigFile.loadDict()
         self.applyConfigOverrides(root)
     }
 
@@ -369,16 +359,18 @@ final class AppState {
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .isEmpty ?? true)
 
-        let desiredMode: ConnectionMode? = switch modeRaw {
-        case "local":
-            .local
-        case "remote":
-            .remote
-        case "unconfigured":
-            .unconfigured
-        default:
-            nil
-        }
+        let desiredMode: ConnectionMode? = {
+            switch modeRaw {
+            case "local":
+                return .local
+            case "remote":
+                return .remote
+            case "unconfigured":
+                return .unconfigured
+            default:
+                return nil
+            }
+        }()
 
         if let desiredMode {
             if desiredMode != self.connectionMode {
@@ -409,59 +401,50 @@ final class AppState {
     private func syncGatewayConfigIfNeeded() {
         guard !self.isPreview, !self.isInitializing else { return }
 
-        let connectionMode = self.connectionMode
-        let remoteTarget = self.remoteTarget
-        let desiredMode: String? = switch connectionMode {
+        var root = ClawdisConfigFile.loadDict()
+        var gateway = root["gateway"] as? [String: Any] ?? [:]
+        var changed = false
+
+        let desiredMode: String?
+        switch self.connectionMode {
         case .local:
-            "local"
+            desiredMode = "local"
         case .remote:
-            "remote"
+            desiredMode = "remote"
         case .unconfigured:
-            nil
+            desiredMode = nil
         }
-        let remoteHost = connectionMode == .remote
-            ? CommandResolver.parseSSHTarget(remoteTarget)?.host
-            : nil
 
-        Task { @MainActor in
-            // Keep app-only connection settings local to avoid overwriting remote gateway config.
-            var root = ClawdbotConfigFile.loadDict()
-            var gateway = root["gateway"] as? [String: Any] ?? [:]
-            var changed = false
-
-            let currentMode = (gateway["mode"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
-            if let desiredMode {
-                if currentMode != desiredMode {
-                    gateway["mode"] = desiredMode
-                    changed = true
-                }
-            } else if currentMode != nil {
-                gateway.removeValue(forKey: "mode")
+        let currentMode = (gateway["mode"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let desiredMode {
+            if currentMode != desiredMode {
+                gateway["mode"] = desiredMode
                 changed = true
             }
-
-            if connectionMode == .remote, let host = remoteHost {
-                var remote = gateway["remote"] as? [String: Any] ?? [:]
-                let existingUrl = (remote["url"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                let parsedExisting = existingUrl.isEmpty ? nil : URL(string: existingUrl)
-                let scheme = parsedExisting?.scheme?.isEmpty == false ? parsedExisting?.scheme : "ws"
-                let port = parsedExisting?.port ?? 18789
-                let desiredUrl = "\(scheme ?? "ws")://\(host):\(port)"
-                if existingUrl != desiredUrl {
-                    remote["url"] = desiredUrl
-                    gateway["remote"] = remote
-                    changed = true
-                }
-            }
-
-            guard changed else { return }
-            if gateway.isEmpty {
-                root.removeValue(forKey: "gateway")
-            } else {
-                root["gateway"] = gateway
-            }
-            ClawdbotConfigFile.saveDict(root)
+        } else if currentMode != nil {
+            gateway.removeValue(forKey: "mode")
+            changed = true
         }
+
+        if self.connectionMode == .remote,
+           let host = CommandResolver.parseSSHTarget(self.remoteTarget)?.host
+        {
+            var remote = gateway["remote"] as? [String: Any] ?? [:]
+            let existingUrl = (remote["url"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let parsedExisting = existingUrl.isEmpty ? nil : URL(string: existingUrl)
+            let scheme = parsedExisting?.scheme?.isEmpty == false ? parsedExisting?.scheme : "ws"
+            let port = parsedExisting?.port ?? 18789
+            let desiredUrl = "\(scheme ?? "ws")://\(host):\(port)"
+            if existingUrl != desiredUrl {
+                remote["url"] = desiredUrl
+                gateway["remote"] = remote
+                changed = true
+            }
+        }
+
+        guard changed else { return }
+        root["gateway"] = gateway
+        ClawdisConfigFile.saveDict(root)
     }
 
     func triggerVoiceEars(ttl: TimeInterval? = 5) {
@@ -591,7 +574,6 @@ extension AppState {
         state.iconAnimationsEnabled = true
         state.showDockIcon = true
         state.voiceWakeMicID = "BuiltInMic"
-        state.voiceWakeMicName = "Built-in Microphone"
         state.voiceWakeLocaleID = Locale.current.identifier
         state.voiceWakeAdditionalLocaleIDs = ["en-US", "de-DE"]
         state.voicePushToTalkEnabled = false
@@ -602,7 +584,7 @@ extension AppState {
         state.canvasEnabled = true
         state.remoteTarget = "user@example.com"
         state.remoteIdentity = "~/.ssh/id_ed25519"
-        state.remoteProjectRoot = "~/Projects/clawdbot"
+        state.remoteProjectRoot = "~/Projects/clawdis"
         state.remoteCliPath = ""
         state.attachExistingGatewayOnly = false
         return state

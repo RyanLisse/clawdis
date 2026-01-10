@@ -32,10 +32,16 @@ extension OnboardingView {
         let shouldMonitor = isConnectionPage
         if shouldMonitor, !self.monitoringDiscovery {
             self.monitoringDiscovery = true
+            // Yield immediately to prevent blocking the main thread
             Task { @MainActor in
+                // Allow UI to update before starting discovery
+                await Task.yield()
                 try? await Task.sleep(nanoseconds: 550_000_000)
+                // Check again after sleep in case monitoring was stopped
                 guard self.monitoringDiscovery else { return }
                 self.gatewayDiscovery.start()
+                // Yield before probe to prevent blocking
+                await Task.yield()
                 await self.refreshLocalGatewayProbe()
             }
         } else if !shouldMonitor, self.monitoringDiscovery {
@@ -78,6 +84,8 @@ extension OnboardingView {
         self.authMonitorTask?.cancel()
         self.authMonitorTask = Task {
             while !Task.isCancelled {
+                // Yield to prevent tight loop from blocking UI
+                await Task.yield()
                 await MainActor.run { self.refreshAnthropicOAuthStatus() }
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
@@ -107,6 +115,8 @@ extension OnboardingView {
     }
 
     func refreshLocalGatewayProbe() async {
+        // Yield to prevent blocking
+        await Task.yield()
         let port = GatewayEnvironment.gatewayPort()
         let desc = await PortGuardian.shared.describe(port: port)
         await MainActor.run {

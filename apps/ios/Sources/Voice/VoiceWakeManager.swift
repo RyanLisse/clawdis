@@ -1,79 +1,28 @@
 import AVFAudio
 import Foundation
 import Observation
+import OSLog
 import Speech
 import SwabbleKit
 
-private func makeAudioTapEnqueueCallback(queue: AudioBufferQueue) -> @Sendable (AVAudioPCMBuffer, AVAudioTime) -> Void {
+private let audioLogger = Logger(subsystem: "com.clawdis", category: "VoiceWakeAudio")
+private nonisolated(unsafe) var bufferCount = 0
+
+private nonisolated func makeAudioTapAppendCallback(
+    request: SFSpeechAudioBufferRecognitionRequest)
+    -> AVAudioNodeTapBlock
+{
     { buffer, _ in
-        // This callback is invoked on a realtime audio thread/queue. Keep it tiny and nonisolated.
-        queue.enqueueCopy(of: buffer)
-    }
-}
+        bufferCount += 1
+        let frames = buffer.frameLength
+        let rate = buffer.format.sampleRate
+        let ch = buffer.format.channelCount
 
-private final class AudioBufferQueue: @unchecked Sendable {
-    private let lock = NSLock()
-    private var buffers: [AVAudioPCMBuffer] = []
-
-    func enqueueCopy(of buffer: AVAudioPCMBuffer) {
-        guard let copy = buffer.deepCopy() else { return }
-        self.lock.lock()
-        self.buffers.append(copy)
-        self.lock.unlock()
-    }
-
-    func drain() -> [AVAudioPCMBuffer] {
-        self.lock.lock()
-        let drained = self.buffers
-        self.buffers.removeAll(keepingCapacity: true)
-        self.lock.unlock()
-        return drained
-    }
-
-    func clear() {
-        self.lock.lock()
-        self.buffers.removeAll(keepingCapacity: false)
-        self.lock.unlock()
-    }
-}
-
-extension AVAudioPCMBuffer {
-    fileprivate func deepCopy() -> AVAudioPCMBuffer? {
-        let format = self.format
-        let frameLength = self.frameLength
-        guard let copy = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameLength) else {
-            return nil
-        }
-        copy.frameLength = frameLength
-
-        if let src = self.floatChannelData, let dst = copy.floatChannelData {
-            let channels = Int(format.channelCount)
-            let frames = Int(frameLength)
-            for ch in 0..<channels {
-                dst[ch].update(from: src[ch], count: frames)
-            }
-            return copy
+        if bufferCount % 50 == 1 {
+            audioLogger.info("buf #\(bufferCount): fr=\(frames), rate=\(rate), ch=\(ch)")
         }
 
-        if let src = self.int16ChannelData, let dst = copy.int16ChannelData {
-            let channels = Int(format.channelCount)
-            let frames = Int(frameLength)
-            for ch in 0..<channels {
-                dst[ch].update(from: src[ch], count: frames)
-            }
-            return copy
-        }
-
-        if let src = self.int32ChannelData, let dst = copy.int32ChannelData {
-            let channels = Int(format.channelCount)
-            let frames = Int(frameLength)
-            for ch in 0..<channels {
-                dst[ch].update(from: src[ch], count: frames)
-            }
-            return copy
-        }
-
-        return nil
+        request.append(buffer)
     }
 }
 
@@ -90,8 +39,6 @@ final class VoiceWakeManager: NSObject {
     private var speechRecognizer: SFSpeechRecognizer?
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
-    private var tapQueue: AudioBufferQueue?
-    private var tapDrainTask: Task<Void, Never>?
 
     private var lastDispatched: String?
     private var onCommand: (@Sendable (String) async -> Void)?
@@ -134,6 +81,7 @@ final class VoiceWakeManager: NSObject {
 
     func setEnabled(_ enabled: Bool) {
         self.isEnabled = enabled
+        self.statusText = enabled ? "Starting..." : "Off"
         if enabled {
             Task { await self.start() }
         } else {
@@ -142,44 +90,46 @@ final class VoiceWakeManager: NSObject {
     }
 
     func start() async {
-        guard self.isEnabled else { return }
-        if self.isListening { return }
+        guard self.isEnabled else {
+            self.statusText = "Not enabled"
+            return
+        }
+        if self.isListening {
+            self.statusText = "Already listening"
+            return
+        }
 
         if ProcessInfo.processInfo.environment["SIMULATOR_DEVICE_NAME"] != nil ||
             ProcessInfo.processInfo.environment["SIMULATOR_UDID"] != nil
         {
-            // The iOS Simulator’s audio stack is unreliable for long-running microphone capture.
-            // (We’ve observed CoreAudio deadlocks after TCC permission prompts.)
             self.isListening = false
-            self.statusText = "Voice Wake isn’t supported on Simulator"
+            self.statusText = "Not supported on Simulator"
             return
         }
 
-        self.statusText = "Requesting permissions…"
+        self.statusText = "Requesting mic..."
 
         let micOk = await Self.requestMicrophonePermission()
         guard micOk else {
-            self.statusText = "Microphone permission denied"
+            self.statusText = "Mic denied"
             self.isListening = false
             return
         }
+
+        self.statusText = "Requesting speech..."
 
         let speechOk = await Self.requestSpeechPermission()
         guard speechOk else {
-            self.statusText = "Speech recognition permission denied"
+            self.statusText = "Speech denied"
             self.isListening = false
             return
         }
 
-        self.speechRecognizer = SFSpeechRecognizer()
-        guard self.speechRecognizer != nil else {
-            self.statusText = "Speech recognizer unavailable"
-            self.isListening = false
-            return
-        }
+        self.statusText = "Configuring audio..."
 
         do {
             try Self.configureAudioSession()
+            self.statusText = "Starting recognition..."
             try self.startRecognition()
             self.isListening = true
             self.statusText = "Listening"
@@ -193,21 +143,7 @@ final class VoiceWakeManager: NSObject {
         self.isEnabled = false
         self.isListening = false
         self.statusText = "Off"
-
-        self.tapDrainTask?.cancel()
-        self.tapDrainTask = nil
-        self.tapQueue?.clear()
-        self.tapQueue = nil
-
-        self.recognitionTask?.cancel()
-        self.recognitionTask = nil
-        self.recognitionRequest = nil
-
-        if self.audioEngine.isRunning {
-            self.audioEngine.stop()
-            self.audioEngine.inputNode.removeTap(onBus: 0)
-        }
-
+        self.stopRecognition()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
@@ -218,21 +154,7 @@ final class VoiceWakeManager: NSObject {
 
         self.isListening = false
         self.statusText = "Paused"
-
-        self.tapDrainTask?.cancel()
-        self.tapDrainTask = nil
-        self.tapQueue?.clear()
-        self.tapQueue = nil
-
-        self.recognitionTask?.cancel()
-        self.recognitionTask = nil
-        self.recognitionRequest = nil
-
-        if self.audioEngine.isRunning {
-            self.audioEngine.stop()
-            self.audioEngine.inputNode.removeTap(onBus: 0)
-        }
-
+        self.stopRecognition()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         return true
     }
@@ -242,53 +164,76 @@ final class VoiceWakeManager: NSObject {
         Task { await self.start() }
     }
 
-    private func startRecognition() throws {
+    private func stopRecognition() {
         self.recognitionTask?.cancel()
         self.recognitionTask = nil
-        self.tapDrainTask?.cancel()
-        self.tapDrainTask = nil
-        self.tapQueue?.clear()
-        self.tapQueue = nil
+        self.recognitionRequest?.endAudio()
+        self.recognitionRequest = nil
+        self.audioEngine.inputNode.removeTap(onBus: 0)
+        self.audioEngine.stop()
+        self.speechRecognizer = nil
+    }
+
+    private func startRecognition() throws {
+        bufferCount = 0
+        self.stopRecognition()
+
+        self.speechRecognizer = SFSpeechRecognizer()
+        guard let recognizer = self.speechRecognizer else {
+            audioLogger.error("SFSpeechRecognizer() returned nil")
+            throw NSError(domain: "VoiceWake", code: 2, userInfo: [
+                NSLocalizedDescriptionKey: "Speech recognizer unavailable",
+            ])
+        }
+        audioLogger.info("Recognizer created, available=\(recognizer.isAvailable)")
 
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
         self.recognitionRequest = request
 
         let inputNode = self.audioEngine.inputNode
-        inputNode.removeTap(onBus: 0)
-
         let recordingFormat = inputNode.outputFormat(forBus: 0)
+        let rate = recordingFormat.sampleRate
+        let ch = recordingFormat.channelCount
+        let bits = recordingFormat.streamDescription.pointee.mBitsPerChannel
+        audioLogger.info("Audio format: rate=\(rate), ch=\(ch), bits=\(bits)")
 
-        let queue = AudioBufferQueue()
-        self.tapQueue = queue
-        let tapBlock: @Sendable (AVAudioPCMBuffer, AVAudioTime) -> Void = makeAudioTapEnqueueCallback(queue: queue)
+        guard ch > 0, rate > 0 else {
+            audioLogger.error("Invalid audio format")
+            throw NSError(domain: "VoiceWake", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: "Audio input not available",
+            ])
+        }
+
+        let tapBlock = makeAudioTapAppendCallback(request: request)
         inputNode.installTap(
             onBus: 0,
-            bufferSize: 1024,
+            bufferSize: 2048,
             format: recordingFormat,
             block: tapBlock)
 
         self.audioEngine.prepare()
         try self.audioEngine.start()
+        audioLogger.info("Audio engine started")
 
         let handler = self.makeRecognitionResultHandler()
-        self.recognitionTask = self.speechRecognizer?.recognitionTask(with: request, resultHandler: handler)
-
-        self.tapDrainTask = Task { [weak self] in
-            guard let self, let queue = self.tapQueue else { return }
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 40_000_000)
-                let drained = queue.drain()
-                if drained.isEmpty { continue }
-                for buf in drained {
-                    request.append(buf)
-                }
-            }
-        }
+        self.recognitionTask = recognizer.recognitionTask(with: request, resultHandler: handler)
+        audioLogger.info("Recognition task created")
     }
 
-    private nonisolated func makeRecognitionResultHandler() -> @Sendable (SFSpeechRecognitionResult?, Error?) -> Void {
+    private nonisolated func makeRecognitionResultHandler()
+        -> @Sendable (SFSpeechRecognitionResult?, Error?) -> Void
+    {
         { [weak self] result, error in
+            if let error {
+                let code = (error as NSError).code
+                audioLogger.error("Recog err: \(error.localizedDescription), code=\(code), bufs=\(bufferCount)")
+            }
+            if let result {
+                let text = String(result.bestTranscription.formattedString.prefix(50))
+                audioLogger.info("Recog result: final=\(result.isFinal), text=\(text)")
+            }
+
             let transcript = result?.bestTranscription.formattedString
             let segments = result.flatMap { result in
                 transcript.map { WakeWordSpeechSegments.from(transcription: result.bestTranscription, transcript: $0) }
@@ -354,7 +299,7 @@ final class VoiceWakeManager: NSObject {
 
     private static func configureAudioSession() throws {
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playAndRecord, mode: .measurement, options: [
+        try session.setCategory(.playAndRecord, mode: .voiceChat, options: [
             .duckOthers,
             .mixWithOthers,
             .allowBluetoothHFP,
