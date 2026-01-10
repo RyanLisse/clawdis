@@ -21,5 +21,8 @@ if (parsed.profile) {
   process.argv = parsed.argv;
 }
 
-const { runCli } = await import("./cli/run-main.js");
-await runCli(process.argv);
+async function main() {
+  const { runCli } = await import("./cli/run-main.js");
+  await runCli(process.argv);
+}
+main();
