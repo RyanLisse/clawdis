@@ -89,22 +89,18 @@ export async function readJsonBody(
     req.on("end", () => {
       if (done) return;
       done = true;
-      const raw = Buffer.concat(chunks).toString("utf-8").trim();
-      if (!raw) {
-        resolve({ ok: true, value: {} });
-        return;
-      }
       try {
-        const parsed = JSON.parse(raw) as unknown;
+        const raw = Buffer.concat(chunks).toString("utf8");
+        const parsed = raw ? JSON.parse(raw) : null;
         resolve({ ok: true, value: parsed });
-      } catch (err) {
-        resolve({ ok: false, error: String(err) });
+      } catch {
+        resolve({ ok: false, error: "invalid json" });
       }
     });
-    req.on("error", (err) => {
+    req.on("error", () => {
       if (done) return;
       done = true;
-      resolve({ ok: false, error: String(err) });
+      resolve({ ok: false, error: "read error" });
     });
   });
 }
