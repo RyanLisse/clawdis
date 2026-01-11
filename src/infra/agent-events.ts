@@ -17,6 +17,7 @@ export type AgentEventPayload = {
 export type AgentRunContext = {
   sessionKey?: string;
   verboseLevel?: "off" | "on";
+  lane?: string;
 };
 
 // Keep per-run counters so streams stay strictly monotonic per runId.
@@ -39,6 +40,9 @@ export function registerAgentRunContext(
   }
   if (context.verboseLevel && existing.verboseLevel !== context.verboseLevel) {
     existing.verboseLevel = context.verboseLevel;
+  }
+  if (context.lane && existing.lane !== context.lane) {
+    existing.lane = context.lane;
   }
 }
 
