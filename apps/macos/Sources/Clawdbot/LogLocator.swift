@@ -11,7 +11,7 @@ enum LogLocator {
 
     /// Returns the newest log file under /tmp/clawdbot/ (rolling or stdout), or nil if none exist.
     static func bestLogFile() -> URL? {
-        let fm = FileManager.default
+        let fm = FileManager()
         let files = (try? fm.contentsOfDirectory(
             at: self.logDir,
             includingPropertiesForKeys: [.contentModificationDateKey],

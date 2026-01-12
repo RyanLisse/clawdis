@@ -110,7 +110,7 @@ actor MacNodeRuntime {
             let quality = params?.quality ?? 0.9
 
             let path = try await CanvasManager.shared.snapshot(sessionKey: "main", outPath: nil)
-            defer { try? FileManager.default.removeItem(atPath: path) }
+            defer { try? FileManager().removeItem(atPath: path) }
             let data = try Data(contentsOf: URL(fileURLWithPath: path))
             guard let image = NSImage(data: data) else {
                 return Self.errorResponse(req, code: .unavailable, message: "canvas snapshot decode failed")
@@ -183,7 +183,7 @@ actor MacNodeRuntime {
                 includeAudio: params.includeAudio ?? true,
                 deviceId: params.deviceId,
                 outPath: nil)
-            defer { try? FileManager.default.removeItem(atPath: res.path) }
+            defer { try? FileManager().removeItem(atPath: res.path) }
             let data = try Data(contentsOf: URL(fileURLWithPath: res.path))
             struct ClipPayload: Encodable {
                 var format: String
@@ -289,7 +289,7 @@ actor MacNodeRuntime {
             fps: params.fps,
             includeAudio: params.includeAudio,
             outPath: nil)
-        defer { try? FileManager.default.removeItem(atPath: res.path) }
+        defer { try? FileManager().removeItem(atPath: res.path) }
         let data = try Data(contentsOf: URL(fileURLWithPath: res.path))
         struct ScreenPayload: Encodable {
             var format: String

@@ -18,12 +18,12 @@ enum GatewayLaunchAgentManager {
     }
 
     private static var plistURL: URL {
-        FileManager.default.homeDirectoryForCurrentUser
+        FileManager().homeDirectoryForCurrentUser
             .appendingPathComponent("Library/LaunchAgents/\(gatewayLaunchdLabel).plist")
     }
 
     private static var legacyPlistURL: URL {
-        FileManager.default.homeDirectoryForCurrentUser
+        FileManager().homeDirectoryForCurrentUser
             .appendingPathComponent("Library/LaunchAgents/\(legacyGatewayLaunchdLabel).plist")
     }
 
@@ -74,7 +74,7 @@ enum GatewayLaunchAgentManager {
     }
 
     static func isLoaded() async -> Bool {
-        guard FileManager.default.fileExists(atPath: self.plistURL.path) else { return false }
+        guard FileManager().fileExists(atPath: self.plistURL.path) else { return false }
         let result = await Launchctl.run(["print", "gui/\(getuid())/\(gatewayLaunchdLabel)"])
         return result.status == 0
     }
@@ -87,7 +87,7 @@ enum GatewayLaunchAgentManager {
         }
         if enabled {
             _ = await Launchctl.run(["bootout", "gui/\(getuid())/\(self.legacyGatewayLaunchdLabel)"])
-            try? FileManager.default.removeItem(at: self.legacyPlistURL)
+            try? FileManager().removeItem(at: self.legacyPlistURL)
 
             let desiredBind = self.preferredGatewayBind() ?? "loopback"
             let desiredToken = self.preferredGatewayToken()
@@ -142,7 +142,7 @@ enum GatewayLaunchAgentManager {
         self.logger.info("launchd disable requested")
         _ = await Launchctl.run(["bootout", "gui/\(getuid())/\(gatewayLaunchdLabel)"])
         await self.ensureDisabled()
-        try? FileManager.default.removeItem(at: self.plistURL)
+        try? FileManager().removeItem(at: self.plistURL)
         return nil
     }
 
@@ -187,7 +187,7 @@ enum GatewayLaunchAgentManager {
             \(argsXml)
           </array>
           <key>WorkingDirectory</key>
-          <string>\(FileManager.default.homeDirectoryForCurrentUser.path)</string>
+          <string>\(FileManager().homeDirectoryForCurrentUser.path)</string>
           <key>RunAtLoad</key>
           <true/>
           <key>KeepAlive</key>
@@ -339,9 +339,9 @@ extension GatewayLaunchAgentManager {
         if UserDefaults.standard.bool(forKey: attachExistingGatewayOnlyKey) {
             return true
         }
-        let marker = FileManager.default.homeDirectoryForCurrentUser
+        let marker = FileManager().homeDirectoryForCurrentUser
             .appendingPathComponent(self.disableLaunchAgentMarker)
-        return FileManager.default.fileExists(atPath: marker.path)
+        return FileManager().fileExists(atPath: marker.path)
     }
 }
 

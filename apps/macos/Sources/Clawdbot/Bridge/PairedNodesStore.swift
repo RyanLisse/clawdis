@@ -52,7 +52,7 @@ actor PairedNodesStore {
 
     private func persist() async throws {
         let dir = self.fileURL.deletingLastPathComponent()
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try FileManager().createDirectory(at: dir, withIntermediateDirectories: true)
         let data = try JSONEncoder().encode(self.nodes)
         try data.write(to: self.fileURL, options: [.atomic])
     }

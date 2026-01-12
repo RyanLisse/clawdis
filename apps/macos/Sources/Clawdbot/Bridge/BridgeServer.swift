@@ -465,7 +465,7 @@ actor BridgeServer {
     }
 
     private static func defaultStoreURL() throws -> URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        let base = FileManager().urls(for: .applicationSupportDirectory, in: .userDomainMask).first
         guard let base else {
             throw NSError(
                 domain: "Bridge",

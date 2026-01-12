@@ -715,7 +715,7 @@ struct ConfigSettings: View {
             "\(NSHomeDirectory())/Applications",
         ]
 
-        let fm = FileManager.default
+        let fm = FileManager()
         for (name, appName) in candidates {
             for root in roots {
                 let appPath = "\(root)/\(appName)"

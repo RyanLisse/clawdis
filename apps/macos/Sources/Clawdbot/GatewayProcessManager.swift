@@ -364,7 +364,7 @@ final class GatewayProcessManager {
 
     func clearLog() {
         self.log = ""
-        try? FileManager.default.removeItem(atPath: LogLocator.launchdGatewayLogPath)
+        try? FileManager().removeItem(atPath: LogLocator.launchdGatewayLogPath)
         self.logger.debug("gateway log cleared")
     }
 
@@ -377,7 +377,7 @@ final class GatewayProcessManager {
     }
 
     private nonisolated static func readGatewayLog(path: String, limit: Int) -> String {
-        guard FileManager.default.fileExists(atPath: path) else { return "" }
+        guard FileManager().fileExists(atPath: path) else { return "" }
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)) else { return "" }
         let text = String(data: data, encoding: .utf8) ?? ""
         if text.count <= limit { return text }
