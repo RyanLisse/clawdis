@@ -1203,7 +1203,7 @@ export type GatewayControlUiConfig = {
   basePath?: string;
 };
 
-export type GatewayAuthMode = "token" | "password";
+export type GatewayAuthMode = "token" | "password" | "none";
 
 export type GatewayAuthConfig = {
   /** Authentication mode for Gateway connections. Defaults to token when set. */
