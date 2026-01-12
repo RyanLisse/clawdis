@@ -516,7 +516,14 @@ export type ProviderMessageActionName =
   | "event-create"
   | "timeout"
   | "kick"
-  | "ban";
+  | "ban"
+  | "channel-create"
+  | "channel-edit"
+  | "channel-delete"
+  | "channel-move"
+  | "category-create"
+  | "category-edit"
+  | "category-delete";
 
 export type ProviderMessageActionContext = {
   provider: ProviderId;

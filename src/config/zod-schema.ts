@@ -1537,7 +1537,11 @@ export const ClawdbotSchema = z
         auth: z
           .object({
             mode: z
-              .union([z.literal("token"), z.literal("password")])
+              .union([
+                z.literal("token"),
+                z.literal("password"),
+                z.literal("none"),
+              ])
               .optional(),
             token: z.string().optional(),
             password: z.string().optional(),
