@@ -5,6 +5,9 @@ read_when:
 ---
 # OpenAI Chat Completions (HTTP)
 
+> [!NOTE]
+> **Legacy Endpoint**: Consider using the [OpenResponses API](/gateway/openresponses-api) for new integrations. It provides richer semantics for agentic workflows, including item-based inputs, semantic streaming events, and built-in support for images, files, and client tools.
+
 Clawdbot’s Gateway can serve a small OpenAI-compatible Chat Completions endpoint.
 
 This endpoint is **disabled by default**. Enable it in config first.
@@ -21,6 +24,7 @@ Uses the Gateway auth configuration. Send a bearer token:
 - `Authorization: Bearer <token>`
 
 Notes:
+
 - When `gateway.auth.mode="token"`, use `gateway.auth.token` (or `CLAWDBOT_GATEWAY_TOKEN`).
 - When `gateway.auth.mode="password"`, use `gateway.auth.password` (or `CLAWDBOT_GATEWAY_PASSWORD`).
 
@@ -36,6 +40,7 @@ Or target a specific Clawdbot agent by header:
 - `x-clawdbot-agent-id: <agentId>` (default: `main`)
 
 Advanced:
+
 - `x-clawdbot-session-key: <sessionKey>` to fully control session routing.
 
 ## Enabling the endpoint
@@ -87,6 +92,7 @@ Set `stream: true` to receive Server-Sent Events (SSE):
 ## Examples
 
 Non-streaming:
+
 ```bash
 curl -sS http://127.0.0.1:18789/v1/chat/completions \
   -H 'Authorization: Bearer YOUR_TOKEN' \
@@ -99,6 +105,7 @@ curl -sS http://127.0.0.1:18789/v1/chat/completions \
 ```
 
 Streaming:
+
 ```bash
 curl -N http://127.0.0.1:18789/v1/chat/completions \
   -H 'Authorization: Bearer YOUR_TOKEN' \
