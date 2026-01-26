@@ -1166,6 +1166,7 @@ describe("createTelegramBot", () => {
         chat: {
           id: -1001234567890,
           type: "supergroup",
+          title: "Test Group",
           title: "Forum Group",
           is_forum: true,
         },
@@ -1209,6 +1210,7 @@ describe("createTelegramBot", () => {
         chat: {
           id: -1001234567890,
           type: "supergroup",
+          title: "Test Group",
           title: "Forum Group",
           is_forum: true,
         },
@@ -1252,6 +1254,7 @@ describe("createTelegramBot", () => {
         chat: {
           id: -1001234567890,
           type: "supergroup",
+          title: "Test Group",
           title: "Forum Group",
           is_forum: true,
         },
@@ -1908,6 +1911,7 @@ describe("createTelegramBot", () => {
         chat: {
           id: -1001234567890,
           type: "supergroup",
+          title: "Test Group",
           title: "Forum Group",
           is_forum: true,
         },
@@ -1955,6 +1959,7 @@ describe("createTelegramBot", () => {
         chat: {
           id: -1001234567890,
           type: "supergroup",
+          title: "Test Group",
           title: "Forum Group",
           is_forum: true,
         },
@@ -1997,6 +2002,7 @@ describe("createTelegramBot", () => {
         chat: {
           id: -1001234567890,
           type: "supergroup",
+          title: "Test Group",
           title: "Forum Group",
           is_forum: true,
         },
@@ -2048,6 +2054,7 @@ describe("createTelegramBot", () => {
         chat: {
           id: -1001234567890,
           type: "supergroup",
+          title: "Test Group",
           title: "Forum Group",
           is_forum: true,
         },
@@ -2093,6 +2100,7 @@ describe("createTelegramBot", () => {
         chat: {
           id: -1001234567890,
           type: "supergroup",
+          title: "Test Group",
           title: "Forum Group",
           is_forum: true,
         },
@@ -2141,6 +2149,7 @@ describe("createTelegramBot", () => {
         chat: {
           id: -1001234567890,
           type: "supergroup",
+          title: "Test Group",
           title: "Forum Group",
           is_forum: true,
         },
@@ -2727,7 +2736,7 @@ describe("createTelegramBot", () => {
     await handler({
       update: { update_id: 505 },
       messageReaction: {
-        chat: { id: 5678, type: "supergroup", is_forum: true },
+        chat: { id: 5678, type: "supergroup", title: "Test Group", is_forum: true },
         message_id: 100,
         message_thread_id: 42,
         user: { id: 10, first_name: "Bob", username: "bob_user" },
@@ -2765,7 +2774,7 @@ describe("createTelegramBot", () => {
     await handler({
       update: { update_id: 506 },
       messageReaction: {
-        chat: { id: 5678, type: "supergroup", is_forum: true },
+        chat: { id: 5678, type: "supergroup", title: "Test Group", is_forum: true },
         message_id: 101,
         // No message_thread_id - should default to general topic (1)
         user: { id: 10, first_name: "Bob" },
@@ -2803,7 +2812,7 @@ describe("createTelegramBot", () => {
     await handler({
       update: { update_id: 507 },
       messageReaction: {
-        chat: { id: 9999, type: "group" },
+        chat: { id: 9999, type: "group", title: "Test Group" },
         message_id: 200,
         user: { id: 11, first_name: "Charlie" },
         date: 1736380800,
