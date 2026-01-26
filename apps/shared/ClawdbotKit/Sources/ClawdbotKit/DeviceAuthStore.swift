@@ -94,12 +94,12 @@ public enum DeviceAuthStore {
     private static func writeStore(_ store: DeviceAuthStoreFile) {
         let url = fileURL()
         do {
-            try FileManager.default.createDirectory(
+            try FileManager().createDirectory(
                 at: url.deletingLastPathComponent(),
                 withIntermediateDirectories: true)
             let data = try JSONEncoder().encode(store)
             try data.write(to: url, options: [.atomic])
-            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+            try? FileManager().setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
         } catch {
             // best-effort only
         }

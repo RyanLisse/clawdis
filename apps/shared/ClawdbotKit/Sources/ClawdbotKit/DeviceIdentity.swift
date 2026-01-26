@@ -26,11 +26,11 @@ enum DeviceIdentityPaths {
             }
         }
 
-        if let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+        if let appSupport = FileManager().urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
             return appSupport.appendingPathComponent("clawdbot", isDirectory: true)
         }
 
-        return FileManager.default.temporaryDirectory.appendingPathComponent("clawdbot", isDirectory: true)
+        return FileManager().temporaryDirectory.appendingPathComponent("clawdbot", isDirectory: true)
     }
 }
 
@@ -91,7 +91,7 @@ public enum DeviceIdentityStore {
     private static func save(_ identity: DeviceIdentity) {
         let url = self.fileURL()
         do {
-            try FileManager.default.createDirectory(
+            try FileManager().createDirectory(
                 at: url.deletingLastPathComponent(),
                 withIntermediateDirectories: true)
             let data = try JSONEncoder().encode(identity)
